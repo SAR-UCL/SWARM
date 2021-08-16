@@ -68,6 +68,7 @@ def convertEFI():
     print(clean_swarm)
 
 convertEFI()
-#dtypes = clean_swarm.dtypes
+#dtypes = clean_swarm.dtyper
+#s
 #print('Data Types:\n', dtypes)
 
