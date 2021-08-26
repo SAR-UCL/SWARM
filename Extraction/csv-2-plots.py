@@ -22,20 +22,21 @@ def joinIPDEFI():
     joined_IPDEFI = pd.merge(read_IPD, read_EFI,  how='left', left_on=['Date','UTC'], right_on = ['Date','UTC'])
     #merged_inner = pd.merge(left=survey_sub, right=species_sub, left_on='species_id', right_on='species_id')
     #joined_IPDEFIT = joined_IPDEFI.at[29844866, 'name']
-    joined_IPDEFI = joined_IPDEFI.loc[joined_IPDEFI['Date'] == '2018-05-23']
+    joined_IPDEFI = joined_IPDEFI.loc[joined_IPDEFI['Date'] == '2018-05-22']
 
     #print(joined_IPDEFI)
     
     joined_IPDEFI['Ne'] = joined_IPDEFI['Ne'] * 1e6
-    #joined_IPDEFI = joined_IPDEFI[joined_IPDEFI['UTC'].between("11:31:07.197000","15:15:34.197000")]
+    #joined_IPDEFI = joined_IPDEFI[joined_IPDEFI['UTC'].between("14:09:07.197000","14:10:34.197000")]
+    #joined_IPDEFI = joined_IPDEFI.loc[joined_IPDEFI['UTC'] == '14:49:21:19700']
     #joined_IPDEFI = joined_IPDEFI.loc[joined_IPDEFI['Ne'] < 2e+11]
     #joined_IPDEFI = joined_IPDEFI[joined_IPDEFI['Te_x'].between(1000,3000)]
     #joined_IPDEFI = joined_IPDEFI[joined_IPDEFI['Te_y'].between(1000,3000)]
-    #joined_IPDEFI = joined_IPDEFI[joined_IPDEFI['Ti'].between(600,2000)]
+    joined_IPDEFI = joined_IPDEFI[joined_IPDEFI['Ti'].between(809,811)]
     #joined_IPDEFI = joined_IPDEFI[joined_IPDEFI['TiM'].between(600,2000)]
     #joined_IPDEFI = joined_IPDEFI[joined_IPDEFI['Ti'].between(500,3000)]
-    joined_IPDEFI = joined_IPDEFI[joined_IPDEFI['Latitude'].between(-49,-47)]
-    joined_IPDEFI = joined_IPDEFI[joined_IPDEFI['Longitude'].between(-80,-50)] #sydney is 150, santiago is -70
+    #joined_IPDEFI = joined_IPDEFI[joined_IPDEFI['Latitude'].between(-49,-47)]
+    #joined_IPDEFI = joined_IPDEFI[joined_IPDEFI['Longitude'].between(-80,-50)] #sydney is 150, santiago is -70
     #print(joined_IPDEFI)
 
     
@@ -46,6 +47,22 @@ def joinIPDEFI():
         df.drop('hr', axis=1, inplace=True)
         return df
 
+    def rescaleDensity(den, temp):
+
+        boltzmanns_const = 1.38E-23
+        mass = 2.66E-26
+        gravity = 9.81
+
+        H = (boltzmanns_const * temp) /  (mass * gravity)
+        #The scale height describing the plasma distribution with height if only pressure 
+        #gradient and gravity force were present.
+        zH = -80 / H
+        scaled_density = den * np.exp(zH)
+        scale = np.exp(-zH)
+        return scaled_density
+        #return scale
+
+    joined_IPDEFI['Ne_rs'] = joined_IPDEFI.apply(lambda x: rescaleDensity(x.Ne, x.Ti), axis = 1)
 
     '''
     joined_IPDEFI = select_hours(joined_IPDEFI).reset_index().drop(columns=['index'])    
@@ -57,7 +74,7 @@ def joinIPDEFI():
     #csv_output_pathfile = csv_output_path + "/IPD-EFI-Cleaned.csv" # -4 removes '.pkts' or '.dat'
     #joined_IPDEFI.to_csv(csv_output_pathfile, index = False, header = True)
 
-joinIPDEFI()
+#joinIPDEFI()
 
 def cleanIPD():
     path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/Dayside/All/IPD/IPD-Dayside.csv'
@@ -97,7 +114,9 @@ def cleanIPD():
 
     clean_IPD = select_hours(clean_IPD).reset_index().drop(columns=['index'])    
     clean_IPD['Time_short'] = clean_IPD.apply(lambda x: x['UTC'][:-13], axis = 1)
-    clean_IPD['Time_short'] = (clean_IPD['Time_short'].astype(int)) - 4
+    #clean_IPD['Time_short'] = (clean_IPD['Time_short'].astype(int)) - 4
+
+    #clean_IPD
     
     print(clean_IPD)
 
@@ -161,40 +180,40 @@ def plotSwenix():
     melt_temp = pd.melt(load_swenix, id_vars=['date','terminator'], value_vars=['swa_it','phom_it','phok_it'])
 
     #Rename temperature columns
-    melt_den = melt_den.rename(columns={"terminator": "Conditions Match"})
-    melt_den = melt_den.replace({'Conditions Match"': {"yes": "Yes", "no": "No"}})
-    melt_temp = melt_temp.rename(columns={"terminator": "Conditions Match"})
-    melt_temp = melt_temp.replace({'Conditions Match"': {"yes": "Yes", "no": "No"}})
+    melt_den = melt_den.rename(columns={"terminator": "Hemisphere"})
+    melt_den = melt_den.replace({'Hemisphere': {"yes": "Same", "no": "Opposite"}})
+    melt_temp = melt_temp.rename(columns={"terminator": "Hemisphere"})
+    melt_temp = melt_temp.replace({'Hemisphere': {"yes": "Same", "no": "Opposite"}})
 
     #Rename density columns
     melt_den = melt_den.rename(columns={"variable": "Mission"})
-    melt_den = melt_den.replace({'Mission': {"swa_den": "SWARM", "phom_den": "Phoenix (Maxwellian)", "phok_den":"Phoenix (Kappa)"}})
+    melt_den = melt_den.replace({'Mission': {"swa_den": "SWARM", "phom_den": "Phoenix", "phok_den":"Phoenix (Kap)"}})
     melt_temp = melt_temp.rename(columns={"variable": "Mission"})
-    melt_temp = melt_temp.replace({'Mission': {"swa_it": "SWARM", "phom_it": "Phoenix (Maxwellian)", "phok_it":"Phoenix (Kappa)"}})
-    #melt_temp = melt_temp.loc[melt_temp['Mission'] != 'Phoenix (Kappa)']
+    melt_temp = melt_temp.replace({'Mission': {"swa_it": "SWARM", "phom_it": "Phoenix", "phok_it":"Phoenix (Kap)"}})
+    melt_temp = melt_temp.loc[melt_temp['Mission'] != 'Phoenix (Kap)']
 
+
+    #For CEAS Paper
+    plt.figure(figsize=(5.5,3.5), dpi=90)
+    plt.rcParams['font.size'] = '11.5'
+    sns.scatterplot(data = melt_temp, x = 'date', y = 'value', hue = 'Hemisphere', style = 'Mission', palette = 'rocket')
+    plt.ylabel(' Temp [K]')
+    plt.xlabel(' ')
+
+    plt.legend(prop={'size': 10.5},frameon=True)
+    
+    '''
     #print(melt_den, melt_temp)
     plt.rcParams['font.size'] = '10.5'
     x_axis = 'date'
-    figs, axs = plt.subplots(ncols=2, nrows=2, figsize=(7.5,5.5), sharex=True, sharey =False) #3.5 for single, #5.5 for double
+    figs, axs = plt.subplots(ncols=2, nrows=1, figsize=(7.5,3.5), sharex=True, sharey =False) #3.5 for single, #5.5 for double
     axs = axs.flatten()
 
-    hue = 'Conditions Match'
-    #sns.scatterplot(data = melt_den, ax = axs[0], x = x_axis, y = 'value', hue = hue)
-    #sns.scatterplot(data = melt_temp, ax = axs[1], x = x_axis, y = 'value', hue = hue)
+    hue, style, palette = 'Mission', 'Conditions Match', 'rocket'
+    sns.scatterplot(data = melt_den, ax = axs[0], x = x_axis, y = 'value', hue = hue, style = style, palette = palette)
+    sns.scatterplot(data = melt_temp, ax = axs[1], x = x_axis, y = 'value', hue = hue, style = style, palette = palette)
+    
 
-    hue, style = 'Mission', 'Conditions Match'
-    sns.scatterplot(data = melt_den, ax = axs[2], x = x_axis, y = 'value', hue = huey, style = hue)
-    sns.scatterplot(data = melt_temp, ax = axs[3], x = x_axis, y = 'value', hue = huey, style = hue)
-    
-    #For CEAS Paper
-    '''
-    plt.figure(figsize=(5.5,3.5), dpi=90)
-    plt.rcParams['font.size'] = '11.5'
-    sns.scatterplot(data = melt_temp, x = 'date', y = 'value', hue = 'Terminator', style = 'Mission')
-    plt.ylabel(' Temp [K]')
-    plt.xlabel(' ')'''
-    
 
     #axs[0].xaxis.set_major_locator(plt.MaxNLocator(8))
     #axs[1].xaxis.set_major_locator(plt.MaxNLocator(8))
@@ -202,24 +221,28 @@ def plotSwenix():
     den = r'm$^{-3}$'
     axs[0].set_ylabel(f'Density [{den}]')
     axs[1].set_ylabel(f'Temp [K]')
-    axs[2].set_ylabel(f'Density [{den}]')
-    axs[3].set_ylabel(f'Temp [K]')
+    #axs[2].set_ylabel(f'Density [{den}]')
+    #axs[3].set_ylabel(f'Temp [K]')
 
-    #axs[2].set_xlabel(' ')
-    #axs[3].set_xlabel(' ')
+    axs[0].set_xlabel(' ')
+    axs[1].set_xlabel(' ')
 
     axs[0].get_legend().remove()
-    axs[1].get_legend().remove()
-    axs[2].get_legend().remove()
-    axs[3].get_legend().remove()
-    axs[3].legend(bbox_to_anchor=(1.05, 1.1), loc='upper left', prop={'size': 8.5})
+    axs[1].legend(prop={'size': 10.5},frameon=False)
+    #plt.setp(axs[1].get_legend().get_title(), fontsize='32') #
+    #plt.legend(frameon=False)
+    #axs[1].get_legend().remove()
+    #axs[2].get_legend().remove()
+    #axs[3].get_legend().remove()
+    #axs[1].legend(bbox_to_anchor=(1.05, 1.1), loc='upper left', prop={'size': 9.5})
 
     axs[0].set_yscale('log')
-    axs[2].set_yscale('log')
+    #axs[2].set_yscale('log')
     #axs[1].set_yscale('log')
 
-    axs[2].tick_params(axis='x',labelrotation=90)
-    axs[3].tick_params(axis='x',labelrotation=90)
+    axs[0].tick_params(axis='x',labelrotation=90)
+    axs[1].tick_params(axis='x',labelrotation=90)
+    #axs[3].tick_params(axis='x',labelrotation=90)'''
 
     plt.tight_layout()
     plt.show()
