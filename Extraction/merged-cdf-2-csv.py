@@ -8,7 +8,6 @@ import glob
 from pathlib import Path
 import geopandas
 import time
-#from sklearn import preprocessing
 
 path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/Dayside/Multiple/IPD/20180519_IPD.cdf'
 LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/Dayside/Multiple/LP')
@@ -17,8 +16,6 @@ IPD_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Mi
 
 #For electron density, temperature, and surface potential 
 # Home/Level1b/Latest_Baseline/EFIx_LP/
-
-#concat enables multiple .cdf files to be to one df
 
 def joinDatasets():
 
@@ -37,10 +34,10 @@ def joinDatasets():
             # in the sunward direction and 6 (dawn) and 
             # 18 (dusk) perpendicular to the sunward/anti-sunward line.
             Ti = cdf.varget("Ti_meas_drift")
-            #TiM = cdf.varget("Ti_model_drift")
+            TiM = cdf.varget("Ti_model_drift")
 
             #place in dataframe
-            cdf_df = pd.DataFrame({'datetime':utc, 'mlt':mlt, 'lat':lat, 'long':lon, "Ti":Ti})
+            cdf_df = pd.DataFrame({'datetime':utc, 'mlt':mlt, 'lat':lat, 'long':lon, "Ti":Ti, "TiM":TiM})
             cdf_array.append(cdf_df)
 
         return pd.concat(cdf_array) #concat enables multiple .cdf files to be to one df
@@ -94,12 +91,15 @@ def joinDatasets():
     joined_data = joined_data.dropna()
 
     # /// filter df ////
-    #joined_data = joined_data.loc[joined_data['reg'] == 2] #0 equator, 1 mid-lat, 2 auroral oval, 3 polar cap
-    #joined_data = joined_data[joined_data['mlt'].between(11.9,12.1)]
+    #joined_data = joined_data.loc[joined_data['reg'] < 2]
+    #joined_data = joined_data.loc[joined_data['reg'] == 1]  #0 equator, 1 mid-lat, 2 auroral oval, 3 polar cap
+    #joined_data = joined_data[~joined_data['mlt'].between(6,18)]
+    #joined_data = joined_data[(joined_data.mlt != 6) & (joined_data.mlt != 18)] 
     #joined_data = joined_data[joined_data['lat'].between(-10,10)]
     #joined_data = joined_data[joined_data['long'].between(0,1)]
     #joined_data = joined_data[joined_data['Ti'].between(600,2000)]
-    #joined_data = joined_data[joined_data['Te'].between(600,5000)]
+    joined_data = joined_data[joined_data['Te'].between(600,5000)]
+    joined_data = joined_data[::60]
 
     # //// transform df ////
     joined_data['alt'] = (joined_data['alt'] / 1000) - 6371 #remove earth radius and refine decimal places
@@ -119,7 +119,7 @@ def joinDatasets():
     joined_data["date"] = temp_df [0]
     joined_data["utc"] = temp_df [1]
     joined_data = joined_data.reset_index().drop(columns=['index'])
-    joined_data = joined_data[['date','utc','mlt','lat','long','alt','Te','Ne','rod','Ti','reg']] #re-order dataframe
+    joined_data = joined_data[['date','utc','mlt','lat','long','alt','Ne','rod','Te','Ti','TiM','pot','reg']] #re-order dataframe
 
     #Select date
     #joined_data = joined_data.loc[joined_data['date'] == '2018-05-19']
@@ -133,6 +133,26 @@ def joinDatasets():
         df.drop('hr', axis=1, inplace=True)
         return df
 
+    
+    def daynight(df):
+        if 6 <= df <= 18:
+            return 'day'
+        else:
+            return 'night'
+
+    def daynightExtra(df):
+        if 7 <= df <= 17:
+            return 'day'
+        elif 5 <= df <= 7:
+            return 'dawn'
+        elif 17 <= df <= 19:
+            return 'dusk'
+        else:
+            return 'night'
+
+    joined_data['hemi'] = joined_data['mlt'].apply(daynight)
+
+
     #Data reduction techniques
     #joined_data = joined_data.groupby(['date','mlt'], as_index=False)['Ne','Te','Ti'].mean() #Select single MLT per date
     #joined_data = select_hours(joined_data) #Select one hour per day
@@ -142,22 +162,14 @@ def joinDatasets():
     joined_to_csv = joined_data.to_csv(csv_output_pathfile, index = False, header = True)
 
     #print (joined_data)
-    return joined_to_csv
-
-
-#joinDatasets()
+    return joined_data
 
 joined_data = joinDatasets()
 print(joined_data)
+
+
+
 #print(joined_data.describe()) #describe the dataset
-
-#correlatioj matrix. 1 = strong positive correctlation, -1 strong negative, 0 no linar relationship
-#print('\n',corr_matrix["Te"].sort_values(ascending=False)) 
-##corr_matrix = joined_data.corr()
-
-#joined_data.hist(bins=50, figsize=(8,4.5))
-
-#plt.show()
 
 
 def plotSWARM():
@@ -220,13 +232,4 @@ def plotSWARM():
 
     plt.tight_layout()
     plt.show()
-
-#plotSWARM()
-
-#Needed for new .cdf files to determine var names
-
-#cdf = cdflib.CDF(path)
-#cdf_variables = cdf.cdf_info()
-#cdf_variables = cdf_variables['zVariables']
-#print(cdf_variables)
 
