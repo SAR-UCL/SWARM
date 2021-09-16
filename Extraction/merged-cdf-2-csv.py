@@ -13,6 +13,7 @@ path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/S
 LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/Dayside/Multiple/LP')
 EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/Dayside/Multiple/EFI')
 IPD_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/Dayside/Multiple/IPD')
+ACC_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/Dayside/Multiple/ACC')
 
 #For electron density, temperature, and surface potential 
 # Home/Level1b/Latest_Baseline/EFIx_LP/
@@ -77,18 +78,74 @@ def joinDatasets():
 
         return pd.concat(cdf_array) 
 
+    def openACC(dire):
+        cdf_xyz = []
+        cdf_time = []
+        cdf_files = dire.glob('*.cdf')
+        for f in cdf_files:
+            cdf = cdflib.CDF(f) #asign to cdf object
+
+            utc = cdf.varget("time")
+            a_cal = cdf.varget("a_cal") #calibrated linear acceleration (X, Y, Z)
+            a_stp = cdf.varget("a_stp") #step corrections for linear accelerations
+
+            #time
+            cdf_df = pd.DataFrame({"datetime":utc})
+            cdf_time.append(cdf_df)
+
+            #xyz for exploding
+            cdf_df = pd.DataFrame({"cal":[a_cal]})
+            cdf_xyz.append(cdf_df)
+
+            
+        return pd.concat(cdf_xyz), pd.concat(cdf_time)
+
+    
     #Call different instrument data
     EFI_data = openEFI(EFI_dir)
     IPD_data = openIPD(IPD_dir)
     LP_data = openLP(LP_dir)
+    ACC_xyz, ACC_time = openACC(ACC_dir)
+
+    
+    #ACC_data = ACC_data.explode('cal')
+    ACC_xyz = ACC_xyz.apply(pd.Series.explode).values.tolist()
+    
+    #ACC_time = ACC_time.values.tolist()
+
+    ACC_list = [item[0] for item in ACC_xyz]
+    ACC_list = [item[0] for item in ACC_list]
+    #print(ACC_list[0])
+
+    
+    ACC_x = pd.DataFrame(ACC_list,columns=['accel'])
+    ACC_time = ACC_time.reset_index().drop(columns=['index'])
+
+    #print(ACC_x)
+    #print(ACC_time)
+
+    #boolean = ACC_time['datetime'].duplicated().any()
+
+    #print(boolean)
+
+    
+    ACC_data = pd.concat([ACC_time, ACC_x], axis=1)
+    print(ACC_data)
+
+    joined_data = ACC_data
+
+    #csv_output_pathfile = csv_output_path + "/acc-check.csv" # -4 removes '.pkts' or '.dat'
+    #csv_output_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Instrument Data/Analysis/Sept-21/data'
+    #ACC_xyz.to_csv(csv_output_pathfile, index = False, header = True)
 
     #normalise cadence
     LP_data = LP_data.iloc[::2]
     EFI_data = EFI_data.iloc[::2]
 
     #merge dataframes
-    joined_data = EFI_data.merge(IPD_data, on = 'datetime').merge(LP_data, on ='datetime')
-    joined_data = joined_data.dropna()
+    #joined_data = EFI_data.merge(IPD_data, on = 'datetime').merge(LP_data, on ='datetime') #WORKING DO NOT EDIT 16-09
+    #joined_data = EFI_data.merge(IPD_data, on = 'datetime').merge(ACC_data, on ='datetime')
+    #joined_data = joined_data.dropna()
 
     # /// filter df ////
     #joined_data = joined_data.loc[joined_data['reg'] < 2]
@@ -98,14 +155,17 @@ def joinDatasets():
     #joined_data = joined_data[joined_data['lat'].between(-10,10)]
     #joined_data = joined_data[joined_data['long'].between(0,1)]
     #joined_data = joined_data[joined_data['Ti'].between(600,2000)]
-    joined_data = joined_data[joined_data['Te'].between(600,5000)]
-    joined_data = joined_data[::60]
+    #joined_data = joined_data[joined_data['Te'].between(600,5000)]
+    #joined_data = joined_data[::60]
 
+    #print(joined_data)
+    '''
+    
     # //// transform df ////
     joined_data['alt'] = (joined_data['alt'] / 1000) - 6371 #remove earth radius and refine decimal places
     joined_data['Ne'] = joined_data['Ne'] * 1e6
     joined_data['rod'] = joined_data['rod'] * 1e6
-    joined_data["mlt"] = joined_data["mlt"].astype(int)
+    joined_data["mlt"] = joined_data["mlt"].astype(int)'''
 
 
     def convert2Datetime(utc):
@@ -119,7 +179,9 @@ def joinDatasets():
     joined_data["date"] = temp_df [0]
     joined_data["utc"] = temp_df [1]
     joined_data = joined_data.reset_index().drop(columns=['index'])
-    joined_data = joined_data[['date','utc','mlt','lat','long','alt','Ne','rod','Te','Ti','TiM','pot','reg']] #re-order dataframe
+
+    print(joined_data)
+
 
     #Select date
     #joined_data = joined_data.loc[joined_data['date'] == '2018-05-19']
@@ -132,13 +194,20 @@ def joinDatasets():
         df.drop_duplicates(subset=['date', 'hr'], keep='first', inplace=True)
         df.drop('hr', axis=1, inplace=True)
         return df
-
     
-    def daynight(df):
-        if 6 <= df <= 18:
+    def daynight(x):
+        if 6 <= x <= 18:
             return 'day'
         else:
             return 'night'
+
+    def densityDefintion(x):
+        if x > 1e11:
+            return 'most dense'
+        elif 6e10 <= x <= 1e11:
+            return 'dense'
+        else:
+            return 'least dense' 
 
     def daynightExtra(df):
         if 7 <= df <= 17:
@@ -149,27 +218,28 @@ def joinDatasets():
             return 'dusk'
         else:
             return 'night'
-
+    '''
     joined_data['hemi'] = joined_data['mlt'].apply(daynight)
+    joined_data['den'] = joined_data['Ne'].apply(densityDefintion)
 
+    joined_data = joined_data[['date','utc','mlt','hemi','lat','long','alt','Ne','den','Te','Ti','pot','reg']] #re-order dataframe
 
     #Data reduction techniques
     #joined_data = joined_data.groupby(['date','mlt'], as_index=False)['Ne','Te','Ti'].mean() #Select single MLT per date
     #joined_data = select_hours(joined_data) #Select one hour per day
+
+    #Check label balance
+    print (joined_data['den'].value_counts())
 
     csv_output_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Instrument Data/Analysis/Sept-21/data'
     csv_output_pathfile = csv_output_path + "/IPD-Dayside-Cleaned.csv" # -4 removes '.pkts' or '.dat'
     joined_to_csv = joined_data.to_csv(csv_output_pathfile, index = False, header = True)
 
     #print (joined_data)
-    return joined_data
+    return joined_data'''
 
 joined_data = joinDatasets()
-print(joined_data)
-
-
-
-#print(joined_data.describe()) #describe the dataset
+#print(joined_data)
 
 
 def plotSWARM():
