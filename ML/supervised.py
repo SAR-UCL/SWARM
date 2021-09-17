@@ -10,14 +10,12 @@ path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/S
 file_name = r'IPD-Dayside-Cleaned.csv'
 load_csv = path + file_name
 load_csv = pd.read_csv(load_csv)
-load_csv = load_csv[::] #skips every 60 is a cadency of 1 minute, so 1440 per day
-
-
-
-
+#print(load_csv)
 
 def selectNScale(df):
     from sklearn.preprocessing import StandardScaler
+
+    global features
 
     df = df.replace({'reg': {0: "equator", 1: "mid-lat", 2: "polar", 3:"auroral"}})
     df = df[(df.reg != 'polar') & (df.reg != 'auroral')] #Remove auroral and polar classes
@@ -26,22 +24,27 @@ def selectNScale(df):
     #df = df[(df.hemi != 'night')] #remove day or night
 
     #Select and scale the x data
-    x_data = df[['Te','Ti','Ne','pot']]
+    features = ['Ne','Te','Ti','Tn', 'pot']
+    x_data = df[features]
     scaler = StandardScaler()
     scaler.fit(x_data) #compute mean for removal and std
     x_data = scaler.transform(x_data)
 
     #select and flatten y data
-    y_data = df[['hemi']]
-    y_data = y_data[['hemi']].to_numpy()
+    labels = 'hemi'
+    y_data = df[[labels]]
+    y_data = y_data[[labels]].to_numpy()
     y_data = np.concatenate(y_data).ravel().tolist()
 
     #Visualise pre-ML
-    plt.figure(figsize=(7,3.5), dpi=90)
-    sns.scatterplot(data = df, x = 'pot', y='Ne', hue = 'reg', style = 'hemi', palette='Set2')
+    '''
+    plt.figure(figsize=(5,3.5), dpi=90)
+    plt.rcParams['font.size'] = '9.5' 
+    plt.title('Potential vs. Density\n')
+    sns.scatterplot(data = df, x = 'pot', y='Ne', hue = 'den', palette='Set2')
     plt.yscale('log')
     plt.tight_layout()
-    plt.show()
+    plt.show()'''
 
     return x_data, y_data
 
@@ -52,15 +55,16 @@ def trainTestSplit(x_data, y_data):
 
     X_train, X_test, y_train, y_test = train_test_split(x_data, y_data, test_size = 0.2, random_state=0)
 
+    #print(len(X_train))
     return X_train, X_test, y_train, y_test
 
-#X_train, X_test, y_train, y_test = trainTestSplit(x_data, y_data)
+X_train, X_test, y_train, y_test = trainTestSplit(x_data, y_data)
 
 def randomForest():
     from sklearn.ensemble import RandomForestClassifier
 
-    model = RandomForestClassifier(n_estimators=75, min_samples_leaf=2, max_features="log2", bootstrap=True, random_state=0,
-        class_weight='balanced', criterion='gini')
+    model = RandomForestClassifier(n_estimators=75, min_samples_leaf=2, bootstrap=True, random_state=0,
+        class_weight='balanced')
     model = model.fit(X_train, y_train)
 
     model.n_features_
@@ -91,7 +95,7 @@ def sgd():
     return model
 
 #Model
-model_name = 'random-forest.pkl'
+model_name = 'random-forest-30s.pkl'
 model_pathfile = path + model_name
 
 def saveModel():
@@ -103,10 +107,12 @@ def saveModel():
     #model = gaussian()
     model = randomForest()
 
+    #Split set and cross-validate. Reduces risk of over-fitting.
     scores = cross_val_score(model, X_train, y_train, cv=5)
     print("μ accuracy: %0.2f, σ: %0.2f" % (scores.mean(), scores.std()))
 
-    print(model.get_params())
+    #See (hyper)parameters. Useful for optimisation
+    #print(model.get_params())
 
     with open(model_pathfile, 'wb') as file:
         pickle.dump(model, file)
@@ -116,7 +122,7 @@ def saveModel():
     #y_pred = model.predict(X_test) 
     #print("Accuracy:",metrics.accuracy_score(y_test, y_pred))
 
-#saveModel()
+saveModel()
 
 def pltSKL():
 
@@ -132,7 +138,10 @@ def pltSKL():
     y_pred = model.predict(X_test) #based on the model, predict classes (equator, mid-lat, etc) of test set 
     y_probas = model.predict_proba(X_test) #based on the model, predict probability of classes: equator 0.8%, mid-lat 0.65%
 
-    print("Accuracy:",metrics.accuracy_score(y_test, y_pred))
+    #print("Accuracy:",metrics.accuracy_score(y_test, y_pred))
+    accuracy = metrics.accuracy_score(y_test, y_pred)
+    accuracy = float("{:.2f}".format(accuracy)) * 100
+
     #print("Recall:",metrics.recall_score(y_test, y_pred))
     #print("Precision:",metrics.precision_score(y_test, y_pred))
 
@@ -142,21 +151,28 @@ def pltSKL():
     #    print("X:%s, Pred:%s Prob:%s" % (X_test[i], y_pred[i], y_probas[i]))
     
     #Plot the different metrics
-    figs, axs = plt.subplots(ncols=2, nrows=1, figsize=(8.5,3.5)) #3.5 for single, #5.5 for double
+    figs, axs = plt.subplots(ncols=2, nrows=2, figsize=(8.5,5.5), dpi=90) #3.5 for single, #5.5 for double
     axs = axs.flatten()
 
-    #skplt.metrics.plot_precision_recall(y_test, y_probas, ax=axs[0])
+    #Decor
+    #plt.rcParams['font.size'] = '9.5' 
+    figs.suptitle(f'Determining Diurnality \n Classifier accuracy: {accuracy}%, Cadence: 30s')
+    #plt.rcParams['font.size'] = '9.5'  
+    #figs.subplots_adjust(top=0.88)
+
     #skplt.metrics.plot_roc(y_test, y_probas, ax=axs[1])
-    skplt.estimators.plot_feature_importances(model, feature_names=['Te','Ti','Ne','pot'], ax=axs[0])
-    #skplt.estimators.plot_learning_curve(model, X_train, y_train, ax=axs[2])
-    skplt.metrics.plot_confusion_matrix(y_test, y_pred, ax = axs[1])
+    skplt.estimators.plot_feature_importances(model, feature_names=features, ax=axs[1])
+    skplt.metrics.plot_confusion_matrix(y_test, y_pred, ax = axs[3])
+    skplt.metrics.plot_precision_recall(y_test, y_probas, ax=axs[2])
+    skplt.estimators.plot_learning_curve(model, X_train, y_train, ax=axs[0])
+    
 
-    axs[0].legend(prop={'size': 9.5})
+    #axs[0].legend(prop={'size': 9.5})
     #axs[1].legend(prop={'size': 9.5})
-    #axs[3].get_legend().remove()
+    #axs[1].get_legend().remove()
 
-
+    
     plt.tight_layout()
     plt.show()
 
-#pltSKL()
+pltSKL()
