@@ -14,6 +14,7 @@ LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Mis
 EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/Dayside/Multiple/EFI')
 IPD_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/Dayside/Multiple/IPD')
 ACC_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/Dayside/Multiple/ACC')
+MAG_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/Dayside/Multiple/MAG')
 
 #For electron density, temperature, and surface potential 
 # Home/Level1b/Latest_Baseline/EFIx_LP/
@@ -64,6 +65,7 @@ def joinDatasets():
         return pd.concat(cdf_array) #concat enables multiple .cdf files to be to one df
 
     def openLP(dire):
+
         cdf_array = []
         cdf_files = dire.glob('*.cdf')
         for f in cdf_files:
@@ -78,8 +80,26 @@ def joinDatasets():
             
 
         return pd.concat(cdf_array) 
+    
+    def openMAG(dire):
 
-    def openACC(dire):
+        cdf_array = []
+        cdf_files = dire.glob('*.cdf')
+        for f in cdf_files:
+            cdf = cdflib.CDF(f) #asign to cdf object
+
+            utc = cdf.varget("Timestamp")
+            #alt = cdf.varget("Radius")
+            F = cdf.varget("F")
+            B_VFM = cdf.varget("B_VFM")
+
+            cdf_df = pd.DataFrame({"datetime":utc, "b_field_int":F})
+            cdf_array.append(cdf_df)
+            
+
+        return pd.concat(cdf_array) 
+
+    def OpenACC(dire):
         cdf_xyz = []
         cdf_time = []
         cdf_files = dire.glob('*.cdf')
@@ -100,31 +120,50 @@ def joinDatasets():
 
             
         return pd.concat(cdf_xyz), pd.concat(cdf_time)
-
-    
+   
     #Call different instrument data
     EFI_data = openEFI(EFI_dir)
     IPD_data = openIPD(IPD_dir)
     LP_data = openLP(LP_dir)
-    ACC_xyz, ACC_time = openACC(ACC_dir)
-
-    #Additional processing for accelerometer data
-    ACC_xyz = ACC_xyz.apply(pd.Series.explode).values.tolist() #Expand XYZ into single row
-    ACC_list = [item[0] for item in ACC_xyz] #access list 1
-    ACC_list = [item[0] for item in ACC_list] #access the X component or along-track   
-    ACC_x = pd.DataFrame(ACC_list,columns=['accel']) #convert to df 
-    ACC_time = ACC_time.reset_index().drop(columns=['index']) 
-    ACC_data = pd.concat([ACC_time, ACC_x], axis=1)
-    #joined_data = ACC_data
-
+    MAG_data = openMAG(MAG_dir)
+    
     #normalise cadence
     LP_data = LP_data.iloc[::2]
     EFI_data = EFI_data.iloc[::2]
 
     #merge dataframes
-    joined_data = EFI_data.merge(IPD_data, on = 'datetime').merge(LP_data, on ='datetime') #WORKING DO NOT EDIT 16-09
-    #joined_data = EFI_data.merge(IPD_data, on = 'datetime').merge(ACC_data, on ='datetime').merge(ACC_data, on = 'datetime')
+    joined_data = EFI_data.merge(IPD_data, on = 'datetime').merge(LP_data, on ='datetime')
+    joined_data = joined_data[joined_data['Ti'].between(600,2000)]
+    joined_data = joined_data[joined_data['Te'].between(600,5000)]
+
+    #joined_data = joined_data.dropna()
+    #print(joined_data)
+
+    def convert2Datetime(utc):
+        #https://pypi.org/project/cdflib/
+        utc = cdflib.epochs.CDFepoch.to_datetime(utc)
+        return utc
+
+    joined_data['datetime'] = joined_data['datetime'].apply(convert2Datetime).str[0].astype(str)
+    joined_data["datetime"] = joined_data['datetime'].astype(str).str.slice(stop =-4) #MAG data does not have miliseconds, so this normalises the set before merging
+    MAG_data['datetime'] = MAG_data['datetime'].apply(convert2Datetime).str[0].astype(str)
+
+    joined_data = joined_data.merge(MAG_data, on = 'datetime')
     joined_data = joined_data.dropna()
+    joined_data = joined_data[::60] #set cadency (in seconds)
+    #print(joined_data)
+
+    print(joined_data)
+    
+    def removeDatetime(df):
+        temp_df = df["datetime"].str.split(" ", n = 1, expand = True)
+        df["date"] = temp_df [0]
+        df["utc"] = temp_df [1]
+        df = df.reset_index().drop(columns=['index'])
+
+        return df
+
+    joined_data = removeDatetime(joined_data)
 
     # /// filter df ////
     #joined_data = joined_data.loc[joined_data['reg'] < 2]
@@ -133,12 +172,9 @@ def joinDatasets():
     #joined_data = joined_data[(joined_data.mlt != 6) & (joined_data.mlt != 18)] 
     #joined_data = joined_data[joined_data['lat'].between(-10,10)]
     #joined_data = joined_data[joined_data['long'].between(0,1)]
-    #joined_data = joined_data[joined_data['Ti'].between(600,2000)]
-    #joined_data = joined_data[joined_data['Te'].between(600,5000)]
-    joined_data = joined_data[::30]
-
-    #print(joined_data)
-    
+    joined_data = joined_data[joined_data['Ti'].between(600,2000)]
+    joined_data = joined_data[joined_data['Te'].between(600,5000)]
+    #joined_data = joined_data[::60] #set cadency (in seconds)
     
     # //// transform df ////
     joined_data['alt'] = (joined_data['alt'] / 1000) - 6371 #remove earth radius and refine decimal places
@@ -146,21 +182,7 @@ def joinDatasets():
     joined_data['rod'] = joined_data['rod'] * 1e6
     joined_data["mlt"] = joined_data["mlt"].astype(int)
 
-
-    def convert2Datetime(utc):
-        #https://pypi.org/project/cdflib/
-        utc = cdflib.epochs.CDFepoch.to_datetime(utc)
-        return utc
-
-    # /// Convert from epoch to datetime, then split into two columns ///
-    joined_data['datetime'] = joined_data['datetime'].apply(convert2Datetime).str[0].astype(str)
-    temp_df = joined_data["datetime"].str.split(" ", n = 1, expand = True)
-    joined_data["date"] = temp_df [0]
-    joined_data["utc"] = temp_df [1]
-    joined_data = joined_data.reset_index().drop(columns=['index'])
-
-    #print(joined_data)
-
+    
     #Select date
     #joined_data = joined_data.loc[joined_data['date'] == '2018-05-19']
 
@@ -186,6 +208,14 @@ def joinDatasets():
             return 'dense'
         else:
             return 'least dense' 
+    
+    def tempDefintion(x):
+        if x > 1300:
+            return 'hot'
+        elif 850 <= x <= 1300:
+            return 'thermal'
+        else:
+            return 'cool'
 
     def daynightExtra(df):
         if 7 <= df <= 17:
@@ -198,9 +228,10 @@ def joinDatasets():
             return 'night'
     
     joined_data['hemi'] = joined_data['mlt'].apply(daynight)
-    joined_data['den'] = joined_data['Ne'].apply(densityDefintion)
+    #joined_data['den'] = joined_data['Ne'].apply(densityDefintion)
+    #joined_data['Ti_cat'] = joined_data['Ti'].apply(tempDefintion)
 
-    joined_data = joined_data[['date','utc','mlt','hemi','lat','long','alt','Ne','den','Te','Ti','Tn','pot','reg']] #re-order dataframe
+    joined_data = joined_data[['date','utc','mlt','hemi','lat','long','alt','reg','Ne','rod','Te','Ti','Tn','pot','b_field_int']] #re-order dataframe
 
     #Data reduction techniques
     #joined_data = joined_data.groupby(['date','mlt'], as_index=False)['Ne','Te','Ti'].mean() #Select single MLT per date
@@ -216,8 +247,8 @@ def joinDatasets():
     #print (joined_data)
     return joined_data
 
-joined_data = joinDatasets()
-print(joined_data)
+#joined_data = joinDatasets()
+#print('Whole function applied \n', joined_data)
 
 
 def plotSWARM():
@@ -225,6 +256,13 @@ def plotSWARM():
     plot_data = joinDatasets()
     print(plot_data)
     #print(plot_data.dtypes)
+
+    path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Instrument Data/Analysis/Sept-21/data/'
+    file_name = r'IPD-Dayside-Cleaned.csv'
+    load_csv = path + file_name
+    load_csv = pd.read_csv(load_csv)
+
+    plot_data = load_csv
 
     #Normalise
     #min_max = preprocessing.MinMaxScaler()
@@ -281,3 +319,54 @@ def plotSWARM():
     plt.tight_layout()
     plt.show()
 
+def openMAG(dire):
+    cdf_sca = []
+    cdf_vec = []
+    cdf_files = dire.glob('*.cdf')
+    for f in cdf_files:
+        cdf = cdflib.CDF(f) #asign to cdf object
+
+        #Scalars
+        utc = cdf.varget("Timestamp")
+        f = cdf.varget("F")
+        f_err = cdf.varget("Flags_F")
+
+        #Vectors
+        vfm = cdf.varget("B_VFM")
+        nec = cdf.varget("B_NEC")
+        v_err = cdf.varget("Flags_B")
+
+        #scalars df
+        cdf_scalar = pd.DataFrame({"datetime":utc,"F":f,"F_err":f_err,"V_err":v_err})
+        cdf_sca.append(cdf_scalar)
+        cdf_sca_c = pd.concat(cdf_sca)
+
+        #vectors df
+        cdf_scalar = pd.DataFrame({"vfm":[vfm],'nec':[nec]})
+        cdf_vec.append(cdf_scalar)
+        cdf_vec_c = pd.concat(cdf_vec)
+
+        
+
+    return cdf_vec_c, cdf_sca_c   
+    #return pd.concat(cdf_vec), pd.concat(cdf_sca)
+
+MAG_vec, MAG_scalar = openMAG(MAG_dir)
+#print(MAG_vec)
+
+MAG_scalar = MAG_scalar.reset_index().drop(columns=['index'])
+#print(MAG_scalar)
+
+#Additional processing for mag vector data
+MAG_vec = MAG_vec.apply(pd.Series.explode).values.tolist() #Expand XYZ into single row
+vfm_list = [item[0] for item in MAG_vec] #access list 1
+vfm_df = pd.DataFrame(vfm_list, columns = ['vfm_x','vfm_y','vfm_z'])
+nec_list = [item[1] for item in MAG_vec] #access list 1
+nec_df = pd.DataFrame(nec_list, columns = ['nec_x','nec_y','nec_z'])
+mag_data = pd.concat([MAG_scalar, vfm_df, nec_df], axis =1)
+print(mag_data)
+
+
+#print(MAG_df)
+
+#plotSWARM()

@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 import pandas as pd
 import seaborn as sns
 from matplotlib.colors import LogNorm
+import geopandas
 
 #This file is used for examining the SWARM following extraction from #CDF
 #08-Sep-21 - Plot Te, Ti, TiM and Ne against long and lat. 
@@ -24,7 +25,7 @@ def trainTestSplit(data):
 
     return train_set, test_set
 
-train
+#train
 
 #print(training_only.head())
 
@@ -64,6 +65,9 @@ plt.show()'''
 
 #print("Predictions:", lin_reg)
 
+#plasma = loadCSV()
+#print(plasma)
+
 def PlotLatLong():
 
     #load csv and split functions
@@ -94,7 +98,7 @@ def PlotLatLong():
     c="Ti", cmap=plt.get_cmap("jet"), colorbar=True)
 
     training_only.plot(kind="scatter", x="long", y="lat", alpha=0.4, ax = axs[1],
-    c="TiM", cmap=plt.get_cmap("jet"), colorbar=True)
+    c="b_field_int", cmap=plt.get_cmap("jet"), colorbar=True)
     
     den = r'm$^{-3}$'
     training_only.plot(kind="scatter", x="long", y="lat", alpha=0.4, ax = axs[2],
