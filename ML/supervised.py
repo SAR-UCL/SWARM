@@ -1,3 +1,6 @@
+#. Created by Sachin A. Reddy @ MSSL, UCL
+# October 2021
+
 import scipy
 import numpy as np
 from matplotlib import pyplot as plt
@@ -12,36 +15,44 @@ load_csv = path + file_name
 load_csv = pd.read_csv(load_csv)
 #print(load_csv)
 
+
 def selectNScale(df):
     from sklearn.preprocessing import StandardScaler
 
     global features
 
+    #Region filtering
     df = df.replace({'reg': {0: "equator", 1: "mid-lat", 2: "polar", 3:"auroral"}})
-    df = df[(df.reg != 'equator') & (df.reg != 'mid-lat')] #Remove auroral and polar classes
-    #df = df[(df.reg != 2) & (df.reg != 3)] 
+    df = df[(df.reg != 'polar') & (df.reg != 'auroral')] #Remove auroral and polar classes
+    #df = df[(df.reg != 2) & (df.reg != 3)]
+    
+    #Fluctuations Index 
+    #Calculated by working out rate of change
+    #df = df[(df.IPIR != 1) & (df.IPIR != 5) & (df.IPIR != 6)] 
 
-    #df = df[(df.hemi != 'night')] #remove day or night
+    #Noon or Midnight
+    df = df.loc[df['mid-noon'] != 'other'] 
+    print(df)
 
     #Select and scale the x data
-    features = ['Te', 'Ne','Ti','b_field_int','rod', 'pot']
+    features = ['Ne','Ti','Te','pot']
     x_data = df[features]
     scaler = StandardScaler()
     scaler.fit(x_data) #compute mean for removal and std
     x_data = scaler.transform(x_data)
 
     #select and flatten y data
-    labels = 'reg'
+    labels = 'hemi'
     y_data = df[[labels]]
     y_data = y_data[[labels]].to_numpy()
     y_data = np.concatenate(y_data).ravel().tolist()
 
-    #Visualise pre-ML
     '''
+    #Visualise pre-ML
     plt.figure(figsize=(5,3.5), dpi=90)
     plt.rcParams['font.size'] = '9.5' 
     #plt.title('Potential vs. Density\n')
-    sns.scatterplot(data = df, x = 'pot', y='Ti', hue = 'Ti_cat', palette='Set2')
+    sns.scatterplot(data = df, x = 'rod', y='F', hue = 'IPIR', palette='Set2')
     #plt.yscale('log')
     plt.tight_layout()
     plt.show()'''
@@ -50,10 +61,11 @@ def selectNScale(df):
 
 x_data, y_data = selectNScale(load_csv)
 
+'''Split the data into a training and test set''' 
 def trainTestSplit(x_data, y_data):
     from sklearn.model_selection import train_test_split
 
-    X_train, X_test, y_train, y_test = train_test_split(x_data, y_data, test_size = 0.2, random_state=0)
+    X_train, X_test, y_train, y_test = train_test_split(x_data, y_data, test_size = 0.2, random_state=0) #test 0.2 = 20%
 
     #print(len(X_train))
     return X_train, X_test, y_train, y_test
@@ -95,7 +107,7 @@ def sgd():
     return model
 
 #Model
-model_name = 'random-forest-b-field.pkl'
+model_name = 'random-forest.pkl'
 model_pathfile = path + model_name
 
 def saveModel():
