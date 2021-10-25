@@ -9,40 +9,60 @@ import seaborn as sns
 from matplotlib.colors import LogNorm
 
 #Loading and exporting
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Instrument Data/Analysis/Sept-21/data/'
-file_name = r'IPD-Dayside-Cleaned.csv'
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Oct-21/data/'
+file_name = r'may18-cleaned.csv'
 load_csv = path + file_name
 load_csv = pd.read_csv(load_csv)
 #print(load_csv)
 
+
+def featureEng(df):
+
+    #Remove auroral and polar classes. NB #25-10-21. You can rebalance with SMOTE algorithm and random undersampling
+    df = df.replace({'reg': {0: "equator", 1: "mid-lat", 2: "polar", 3:"auroral"}})
+    df = df[(df.reg != 'polar') & (df.reg != 'auroral')] #Remove auroral and polar classes
+
+    def potentialCalc(x):
+        if 6 <= x <= 18:
+            return -1.5
+        else:
+            return -2.5
+
+    df['pot_s'] = df['mlt'].apply(potentialCalc)
+
+    #Fluctuations Index 
+    #Calculated by working out rate of change
+    #df = df[(df.IPIR != 1) & (df.IPIR != 5) & (df.IPIR != 6)] 
+
+    #Noon or Midnight
+    #df = df.loc[df['mid-noon'] != 'other'] 
+    
+    #For IPD Indexing
+    df = df.loc[df['hemi'] == 'day']
+    #df = df[df['lat'].between(-45,45)]
+    #df = df.loc[df['bubble'] == -1] #1 Confirmed Bubble, 0 unconfirmed bubble, -1 unanalyzable bubble
+
+
+    return df
+
+engFeats = featureEng(load_csv)
+print(engFeats)
 
 def selectNScale(df):
     from sklearn.preprocessing import StandardScaler
 
     global features
 
-    #Region filtering
-    df = df.replace({'reg': {0: "equator", 1: "mid-lat", 2: "polar", 3:"auroral"}})
-    df = df[(df.reg != 'polar') & (df.reg != 'auroral')] #Remove auroral and polar classes
-    #df = df[(df.reg != 2) & (df.reg != 3)]
-    
-    #Fluctuations Index 
-    #Calculated by working out rate of change
-    #df = df[(df.IPIR != 1) & (df.IPIR != 5) & (df.IPIR != 6)] 
-
-    #Noon or Midnight
-    df = df.loc[df['mid-noon'] != 'other'] 
-    print(df)
-
     #Select and scale the x data
-    features = ['Ne','Ti','Te','pot']
+    features = ['Ne','Ti', 'pot']
+    #features = ['Ne','Ti','Te','F','vfm_x','vfm_y','vfm_z']
     x_data = df[features]
     scaler = StandardScaler()
     scaler.fit(x_data) #compute mean for removal and std
     x_data = scaler.transform(x_data)
 
     #select and flatten y data
-    labels = 'hemi'
+    labels = 'bubble'
     y_data = df[[labels]]
     y_data = y_data[[labels]].to_numpy()
     y_data = np.concatenate(y_data).ravel().tolist()
@@ -59,7 +79,7 @@ def selectNScale(df):
 
     return x_data, y_data
 
-x_data, y_data = selectNScale(load_csv)
+x_data, y_data = selectNScale(engFeats)
 
 '''Split the data into a training and test set''' 
 def trainTestSplit(x_data, y_data):
@@ -134,7 +154,7 @@ def saveModel():
     #y_pred = model.predict(X_test) 
     #print("Accuracy:",metrics.accuracy_score(y_test, y_pred))
 
-saveModel()
+#saveModel()
 
 def pltSKL():
 
