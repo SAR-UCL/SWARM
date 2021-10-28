@@ -22,6 +22,7 @@ EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Mi
 IPD_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/Dayside/Multiple/IPD')
 ACC_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/Dayside/Multiple/ACC')
 MAG_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/Dayside/Multiple/MAG')
+TII_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/nov-21/TII/demo')
 
 #For electron density, temperature, and surface potential 
 # Home/Level1b/Latest_Baseline/EFIx_LP/
@@ -133,15 +134,112 @@ def joinDatasets():
             
         return lp_data 
     
-    def openMAG(dire):
-        cdf_sca = []
-        cdf_vec = []
+    def openTII(dire):
+
+        cdf_array = []
         cdf_files = dire.glob('*.cdf')
         for f in cdf_files:
-            cdf = cdflib.CDF(f) #asign to cdf object
+            cdf = cdflib.CDF(f) #asign to cdf object   
+
 
             #Scalars
             utc = cdf.varget("Timestamp")
+            al_h = cdf.varget("Vixh")
+            al_v = cdf.varget("Vixv")
+            xt_h = cdf.varget("Viy")
+            xt_v = cdf.varget("Viz")
+
+            #Flags
+            al_h_err = cdf.varget("Vixh_error")
+            al_v_err = cdf.varget("Vixv_error")
+            xt_h_err = cdf.varget("Viy_error")
+            xt_v_err = cdf.varget("Viz_error")
+
+
+            cdf_df = pd.DataFrame({"Timestamp":utc,"alh":al_h,"alv":al_v, "xth":xt_h,"xtv":xt_v,
+                "alh_e":al_h_err,"alv_e":al_v_err, "xth_e":xt_h_err,"xtv_e":xt_v_err})
+            cdf_array.append(cdf_df)
+
+            tii_data = pd.concat(cdf_array)
+
+            #tii_data = tii_data.loc[tii_data['alh'].between(-300,300)]
+            #tii_data = tii_data.loc[tii_data['alv'].between(-8000,8000)]
+            #tii_data = tii_data.loc[tii_data['xth'].between(-8000,8000)]
+            #tii_data = tii_data.loc[tii_data['xtv'].between(-8000,8000)]
+
+
+            def convert2Datetime(utc):
+                #https://pypi.org/project/cdflib/
+                utc = cdflib.epochs.CDFepoch.to_datetime(utc)
+                return utc
+
+            tii_data['datetime'] = tii_data['Timestamp'].apply(convert2Datetime).str[0].astype(str)
+            tii_data["datetime"] = tii_data['datetime'].astype(str).str.slice(stop =-7)
+
+            def removeDatetime(df):
+                temp_df = df["datetime"].str.split(" ", n = 1, expand = True)
+                df["date"] = temp_df [0]
+                df["utc"] = temp_df [1]
+                df = df.reset_index().drop(columns=['index'])
+
+                return df
+
+            tii_data = removeDatetime(tii_data)
+    
+            tii_data = tii_data.loc[tii_data['date'] == '2021-07-01'] 
+            #date = tii_data['date'].iloc[0]
+            date = 'hi'
+
+            #tii_data['alh_p'] = tii_data['alh'] 
+
+            tii_data = tii_data[::120] # cad is 2hz, 120 reduces to every minute
+            tii_data = tii_data[:60:] # cad is 2hz, 120 reduces to every minute
+            #tii_data = tii_data[::2]
+
+            figs, axs = plt.subplots(ncols=1, nrows=4, figsize=(11.5,7), dpi=90, sharex=True) #3.5 for single, #5.5 for double
+            axs = axs.flatten()
+
+            sns.scatterplot(data = tii_data, ax = axs[0], x = "utc", y = "alh" )
+            sns.lineplot(data = tii_data, ax = axs[0], x = "utc", y = "alh" )
+
+            sns.scatterplot(data = tii_data, ax = axs[1], x = "utc", y = "alv" )
+            sns.lineplot(data = tii_data, ax = axs[1], x = "utc", y = "alv" )
+
+            sns.scatterplot(data = tii_data, ax = axs[2], x = "utc", y = "xth" )
+            sns.lineplot(data = tii_data, ax = axs[2], x = "utc", y = "xth" )
+
+            sns.scatterplot(data = tii_data, ax = axs[3], x = "utc", y = "xtv" )
+            sns.lineplot(data = tii_data, ax = axs[3], x = "utc", y = "xtv" )
+
+
+            axs[0].set_title(f'Along & X-track ion drifts, horizontal & vertical \n {date}', size = 10.5)
+            axs[3].tick_params(axis='x',labelrotation=90)
+            axs[3].set_xlabel(' ')
+            
+            plt.tight_layout()
+            plt.show()
+
+            
+
+            #Single Plot
+            '''
+            plt.figure(figsize=(11.5,4.5), dpi=90)
+            sns.scatterplot(data = tii_data, x = "utc", y = "alh" )
+            sns.lineplot(data = tii_data, x = "utc", y = "alh" )
+            plt.title('ESA valid min max \n -8000 to 8000 m/s \n cad 1 min', fontsize = 10.5)
+            plt.ylabel('Along Track Horizontal Drift [m/s]')
+            plt.xlabel('Time')
+            plt.xticks(rotation=90)'''
+            '''
+            plt.tick_params(
+                axis='x',          # changes apply to the x-axis
+                which='both',      # both major and minor ticks are affected
+                bottom=False,      # ticks along the bottom edge are off
+                top=False,         # ticks along the top edge are off
+                labelbottom=False)''' 
+
+
+            '''
             f = cdf.varget("F")
             f_err = cdf.varget("Flags_F")
             lat = cdf.varget("Latitude")
@@ -174,143 +272,178 @@ def joinDatasets():
 
             mag_data = mag_data.loc[mag_data['F_err'] == 1]
             mag_data = mag_data.loc[mag_data['V_err'] == 0]
-            mag_data = mag_data.drop(columns=['F_err','V_err']) #reduces DF size
+            mag_data = mag_data.drop(columns=['F_err','V_err']) #reduces DF size'''
 
-        return mag_data
 
+        return tii_data
+
+    def openLP(dire):
+
+        cdf_array = []
+        cdf_files = dire.glob('*.cdf')
+        for f in cdf_files:
+            cdf = cdflib.CDF(f) #asign to cdf object
+
+            utc = cdf.varget("Timestamp")
+            alt = cdf.varget("Radius")
+            Vs = cdf.varget("Vs")
+            Vs_flag = cdf.varget("Flags_Vs")
+
+            cdf_df = pd.DataFrame({"datetime":utc, "alt":alt, "pot":Vs,"pot_f":Vs_flag})
+            cdf_array.append(cdf_df)
+
+            lp_data = pd.concat(cdf_array)
+            lp_data = lp_data.iloc[::2]
+            lp_data = lp_data.loc[lp_data['pot_f'] == 20]
+
+            lp_data = lp_data.drop(columns=['pot_f']) #reduces DF size
+
+            
+        return lp_data 
+
+    '''
     #Call different instrument data
     EFI_data = openEFI(EFI_dir)
     IPD_data = openIPD(IPD_dir)
     LP_data = openLP(LP_dir)
-    MAG_data = openMAG(MAG_dir)
+    MAG_data = openMAG(MAG_dir)'''
+
+    #Testing
+    TII_data = openTII(TII_dir)
+
+    return TII_data
     
-    
+    '''
     #merge dataframes
     joined_data = EFI_data.merge(IPD_data, on = 'datetime').merge(LP_data, on ='datetime')
     joined_data = joined_data[joined_data['Ti'].between(600,2000)]
-    joined_data = joined_data[joined_data['Te'].between(600,5000)]
+    joined_data = joined_data[joined_data['Te'].between(600,5000)]'''
 
     #joined_data = joined_data.dropna()
     #print(joined_data)
+    def processCDF(joined_data):
 
-    def convert2Datetime(utc):
-        #https://pypi.org/project/cdflib/
-        utc = cdflib.epochs.CDFepoch.to_datetime(utc)
-        return utc
+        def convert2Datetime(utc):
+            #https://pypi.org/project/cdflib/
+            utc = cdflib.epochs.CDFepoch.to_datetime(utc)
+            return utc
 
-    joined_data['datetime'] = joined_data['datetime'].apply(convert2Datetime).str[0].astype(str)
-    joined_data["datetime"] = joined_data['datetime'].astype(str).str.slice(stop =-4) #MAG data does not have miliseconds, so this normalises the set before merging
-    MAG_data['datetime'] = MAG_data['datetime'].apply(convert2Datetime).str[0].astype(str)
+        joined_data['datetime'] = joined_data['datetime'].apply(convert2Datetime).str[0].astype(str)
+        joined_data["datetime"] = joined_data['datetime'].astype(str).str.slice(stop =-4) #MAG data does not have miliseconds, so this normalises the set before merging
+        MAG_data['datetime'] = MAG_data['datetime'].apply(convert2Datetime).str[0].astype(str)
 
-    joined_data = joined_data.merge(MAG_data, on = 'datetime')
-    joined_data = joined_data.dropna()
-    #joined_data = joined_data[::60] #set cadency (in seconds)
-    #print(joined_data)
+        joined_data = joined_data.merge(MAG_data, on = 'datetime')
+        joined_data = joined_data.dropna()
+        #joined_data = joined_data[::60] #set cadency (in seconds)
+        #print(joined_data)
 
-    #print(joined_data)
-    
-    def removeDatetime(df):
-        temp_df = df["datetime"].str.split(" ", n = 1, expand = True)
-        df["date"] = temp_df [0]
-        df["utc"] = temp_df [1]
-        df = df.reset_index().drop(columns=['index'])
-
-        return df
-
-    joined_data = removeDatetime(joined_data)
-
-    # /// filter df ////
-    #joined_data = joined_data.loc[joined_data['reg'] < 2]
-    #joined_data = joined_data.loc[joined_data['reg'] == 1]  #0 equator, 1 mid-lat, 2 auroral oval, 3 polar cap
-    #joined_data = joined_data[~joined_data['mlt'].between(6,18)]
-    #joined_data = joined_data[(joined_data.mlt != 6) & (joined_data.mlt != 18)] 
-    #joined_data = joined_data[joined_data['lat'].between(-10,10)]
-    #joined_data = joined_data[joined_data['long'].between(0,1)]
-    joined_data = joined_data[joined_data['Ti'].between(600,2000)]
-    joined_data = joined_data[joined_data['Te'].between(600,5000)]
-    #joined_data = joined_data[::60] #set cadency (in seconds)
-    
-    # //// transform df ////
-    joined_data['alt'] = (joined_data['alt'] / 1000) - 6371 #remove earth radius and refine decimal places
-    joined_data['Ne'] = joined_data['Ne'] * 1e6
-    joined_data['rod'] = joined_data['rod'] * 1e6
-    joined_data["mlt"] = joined_data["mlt"].astype(int)
-
-    
-    #Select date
-    #joined_data = joined_data.loc[joined_data['date'] == '2018-05-19']
-
-    def select_hours(df):
+        #print(joined_data)
         
-        import datetime as dt
-        sort_by = 'utc'
-        df['hr'] = pd.to_datetime(df[sort_by]).dt.hour
-        df.drop_duplicates(subset=['date', 'hr'], keep='first', inplace=True)
-        df.drop('hr', axis=1, inplace=True)
-        return df
-    
-    def daynight(x):
-        if 6 <= x <= 18:
-            return 'day'
-        else:
-            return 'night'   
-    
-    def midnightNoon(x):
-        if x == 0:
-            return 'midnight'
-        elif x == 12:
-            return 'noon'
-        else:
-            return 'other'   
+        def removeDatetime(df):
+            temp_df = df["datetime"].str.split(" ", n = 1, expand = True)
+            df["date"] = temp_df [0]
+            df["utc"] = temp_df [1]
+            df = df.reset_index().drop(columns=['index'])
 
-    def densityDefintion(x):
-        if x > 1e11:
-            return 'most dense'
-        elif 6e10 <= x <= 1e11:
-            return 'dense'
-        else:
-            return 'least dense' 
-    
-    def tempDefintion(x):
-        if x > 1300:
-            return 'hot'
-        elif 850 <= x <= 1300:
-            return 'thermal'
-        else:
-            return 'cool'
+            return df
 
-    def daynightExtra(df):
-        if 7 <= df <= 17:
-            return 'day'
-        elif 5 <= df <= 7:
-            return 'dawn'
-        elif 17 <= df <= 19:
-            return 'dusk'
-        else:
-            return 'night'
-    
-    joined_data['hemi'] = joined_data['mlt'].apply(daynight)
-    #joined_data = joined_data.loc[joined_data['bubble'] == 1] 
-    #joined_data['mid-noon'] = joined_data['mlt'].apply(midnightNoon)
-    #joined_data['den'] = joined_data['Ne'].apply(densityDefintion)
-    #joined_data['Ti_cat'] = joined_data['Ti'].apply(tempDefintion)
+        joined_data = removeDatetime(joined_data)
 
-    #joined_data = joined_data[['date','utc','mlt','hemi','lat','long','alt','reg','Ne','rod','Te','Ti','Tn','pot','b_field_int']] #re-order dataframe
-    joined_data = joined_data.drop(columns=['datetime'])
+        # /// filter df ////
+        #joined_data = joined_data.loc[joined_data['reg'] < 2]
+        #joined_data = joined_data.loc[joined_data['reg'] == 1]  #0 equator, 1 mid-lat, 2 auroral oval, 3 polar cap
+        #joined_data = joined_data[~joined_data['mlt'].between(6,18)]
+        #joined_data = joined_data[(joined_data.mlt != 6) & (joined_data.mlt != 18)] 
+        #joined_data = joined_data[joined_data['lat'].between(-10,10)]
+        #joined_data = joined_data[joined_data['long'].between(0,1)]
+        joined_data = joined_data[joined_data['Ti'].between(600,2000)]
+        joined_data = joined_data[joined_data['Te'].between(600,5000)]
+        #joined_data = joined_data[::60] #set cadency (in seconds)
+        
+        # //// transform df ////
+        joined_data['alt'] = (joined_data['alt'] / 1000) - 6371 #remove earth radius and refine decimal places
+        joined_data['Ne'] = joined_data['Ne'] * 1e6
+        joined_data['rod'] = joined_data['rod'] * 1e6
+        joined_data["mlt"] = joined_data["mlt"].astype(int)
 
-    #Data reduction techniques
-    #joined_data = joined_data.groupby(['date','mlt'], as_index=False)['Ne','Te','Ti'].mean() #Select single MLT per date
-    #joined_data = select_hours(joined_data) #Select one hour per day
+        
+        #Select date
+        #joined_data = joined_data.loc[joined_data['date'] == '2018-05-19']
 
-    #Check label balance
-    #print (joined_data['den'].value_counts())
+        def select_hours(df):
+            
+            import datetime as dt
+            sort_by = 'utc'
+            df['hr'] = pd.to_datetime(df[sort_by]).dt.hour
+            df.drop_duplicates(subset=['date', 'hr'], keep='first', inplace=True)
+            df.drop('hr', axis=1, inplace=True)
+            return df
+        
+        def daynight(x):
+            if 6 <= x <= 18:
+                return 'day'
+            else:
+                return 'night'   
+        
+        def midnightNoon(x):
+            if x == 0:
+                return 'midnight'
+            elif x == 12:
+                return 'noon'
+            else:
+                return 'other'   
 
-    csv_output_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Oct-21/data'
-    csv_output_pathfile = csv_output_path + "/may18-cleaned.csv" # -4 removes '.pkts' or '.dat'
-    joined_data.to_csv(csv_output_pathfile, index = False, header = True)
+        def densityDefintion(x):
+            if x > 1e11:
+                return 'most dense'
+            elif 6e10 <= x <= 1e11:
+                return 'dense'
+            else:
+                return 'least dense' 
+        
+        def tempDefintion(x):
+            if x > 1300:
+                return 'hot'
+            elif 850 <= x <= 1300:
+                return 'thermal'
+            else:
+                return 'cool'
 
-    #print (joined_data)
-    return joined_data
+        def daynightExtra(df):
+            if 7 <= df <= 17:
+                return 'day'
+            elif 5 <= df <= 7:
+                return 'dawn'
+            elif 17 <= df <= 19:
+                return 'dusk'
+            else:
+                return 'night'
+        
+        joined_data['hemi'] = joined_data['mlt'].apply(daynight)
+        #joined_data = joined_data.loc[joined_data['bubble'] == 1] 
+        #joined_data['mid-noon'] = joined_data['mlt'].apply(midnightNoon)
+        #joined_data['den'] = joined_data['Ne'].apply(densityDefintion)
+        #joined_data['Ti_cat'] = joined_data['Ti'].apply(tempDefintion)
+
+        #joined_data = joined_data[['date','utc','mlt','hemi','lat','long','alt','reg','Ne','rod','Te','Ti','Tn','pot','b_field_int']] #re-order dataframe
+        joined_data = joined_data.drop(columns=['datetime'])
+
+        #Data reduction techniques
+        #joined_data = joined_data.groupby(['date','mlt'], as_index=False)['Ne','Te','Ti'].mean() #Select single MLT per date
+        #joined_data = select_hours(joined_data) #Select one hour per day
+
+        #Check label balance
+        #print (joined_data['den'].value_counts())
+
+        csv_output_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Oct-21/data'
+        csv_output_pathfile = csv_output_path + "/may18-cleaned.csv" # -4 removes '.pkts' or '.dat'
+        joined_data.to_csv(csv_output_pathfile, index = False, header = True)
+
+        #print (joined_data)
+        return joined_data
+
+    #processedCDF = processCDF(joined_data)
+    #return processedCDF
 
 joined_data = joinDatasets()
 print('Whole function applied \n', joined_data)
