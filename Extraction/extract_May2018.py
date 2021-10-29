@@ -159,12 +159,12 @@ def joinDatasets():
             cdf_df = pd.DataFrame({"Timestamp":utc,"alh":al_h,"alv":al_v, "xth":xt_h,"xtv":xt_v,
                 "alh_e":al_h_err,"alv_e":al_v_err, "xth_e":xt_h_err,"xtv_e":xt_v_err})
             cdf_array.append(cdf_df)
-
             tii_data = pd.concat(cdf_array)
+            print('pre time conv', tii_data)
 
             #tii_data = tii_data.loc[tii_data['alh'].between(-300,300)]
             #tii_data = tii_data.loc[tii_data['alv'].between(-8000,8000)]
-            #tii_data = tii_data.loc[tii_data['xth'].between(-8000,8000)]
+            tii_data = tii_data.loc[tii_data['xth'].between(-100,100)]
             #tii_data = tii_data.loc[tii_data['xtv'].between(-8000,8000)]
 
 
@@ -185,13 +185,18 @@ def joinDatasets():
                 return df
 
             tii_data = removeDatetime(tii_data)
-    
-            tii_data = tii_data.loc[tii_data['date'] == '2021-07-01'] 
-            #date = tii_data['date'].iloc[0]
-            date = 'hi'
+            
+            date = '2021-07-01'
+            tii_data = tii_data.loc[tii_data['date'] == date]
+            #date = tii_data.loc[0, tii_data.columns.get_loc('date')] 
+
+            #print(tii_data.dtypes())
+            print('post-time cov',tii_data)
+            #date = tii_data['utc'].loc[0]
+            #date = 'hi'
 
             #tii_data['alh_p'] = tii_data['alh'] 
-
+            
             tii_data = tii_data[::120] # cad is 2hz, 120 reduces to every minute
             tii_data = tii_data[:60:] # cad is 2hz, 120 reduces to every minute
             #tii_data = tii_data[::2]
@@ -446,7 +451,7 @@ def joinDatasets():
     #return processedCDF
 
 joined_data = joinDatasets()
-print('Whole function applied \n', joined_data)
+#print('Whole function applied \n', joined_data)
 
 def plotSWARM():
 

@@ -49,3 +49,8 @@ def convert2Datetime(utc):
 tii_data['datetime'] = tii_data['Timestamp'].apply(convert2Datetime).str[0].astype(str)
 
 print(tii_data)
+
+tii_data = tii_data[::100] #step 100
+sns.lineplot(data = tii_data, x = 'Timestamp', y = 'alh')
+plt.tight_layout()
+plt.show()
