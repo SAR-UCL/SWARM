@@ -1,9 +1,11 @@
 '''
-Adapted by Sachin Alexander Reddy, UCL MSSL.
+    This script connects to the SWARM ftp to directly download files.
+    The majority is created by Pignalberi
+    https://github.com/pignalberi/TITIPy/blob/master/Downloading_Swarm_data.py
 
-Main source: #https://github.com/pignalberi/TITIPy/blob/master/Downloading_Swarm_data.py
+    Modified by Sachin A. Reddy
 
-03/11/21
+    November 2021
 '''
 
 from ftplib import FTP
@@ -11,16 +13,17 @@ import os
 import zipfile
 import patoolib
 
-SATE = ['A','C']
+SATE = ['A','C'] #select spacecraft
 YEAR = [2019]
 MONTH = [3]
-DAYS = 1
+DAYS = 1 #how many days of data needed. Do not exceed 30
+START_DAY = 1 #start the loop
 
 for SAT in SATE:
     for YR in YEAR:
         for MON in MONTH:
             for DOM in range(DAYS):
-                DOM = DOM + 16
+                DOM = DOM + START_DAY
                 
                 path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP'  #Density and potential
                 #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/March-19' #Ion temp
