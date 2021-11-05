@@ -20,9 +20,9 @@ for SAT in SATE:
     for YR in YEAR:
         for MON in MONTH:
             for DOM in range(DAYS):
-                DOM = DOM + 1
+                DOM = DOM + 16
                 
-                path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/March-19'  #Density and potential
+                path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP'  #Density and potential
                 #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/March-19' #Ion temp
                 #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/April-16' #Bubbles and IPIR
 

@@ -7,11 +7,11 @@ from pathlib import Path
 IBI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/March-19')
 LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/March-19')
 EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/March-19')
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Nov-21/data/March-19'
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Nov-21/data/March-19/'
 
 #file_name = 'LP-data_20211103.h5'
 
-IBI_output = path + 'LP-data_March-19.h5'
+IBI_output = path + 'IBI-data_March-19.h5'
 LP_output = path + 'LP-data_March-19.h5'
 EFI_output = path + 'EFI-data_March-19.h5'
 joined_output = path + 'joined-data_20211104.h5'
@@ -61,7 +61,7 @@ def openIBI(dire):
     ibi_data['datetime'] = ibi_data['datetime'].apply(convert2Datetime).str[0].astype(str)
 
     #Export
-    ibi_data.to_hdf(IBI_output, key = 'ibi_data')
+    ibi_data.to_hdf(IBI_output, key = 'ibi_data', mode = 'w')
     print ('IBI file exported.')
     return ibi_data
 
@@ -113,7 +113,7 @@ def openLP(dire):
     lp_data['datetime'] = lp_data['datetime'].apply(convert2Datetime).str[0].astype(str)
 
     #Export 
-    lp_data.to_hdf(LP_output, key = 'lp_data')
+    lp_data.to_hdf(LP_output, key = 'lp_data', mode = 'w')
     print ('LP data exported.')
     return lp_data
 
@@ -164,16 +164,39 @@ def openEFI(dire):
         efi_data["datetime"] = efi_data['datetime'].str.slice(stop =-4)
         
         #Export
-        efi_data.to_hdf(EFI_output, key = 'efi_data')
+        efi_data.to_hdf(EFI_output, key = 'efi_data', mode = 'w')
         print ('EFI data exported.')
         return efi_data #concat enables multiple .cdf files to be to one df
 
 #Load open functions
-IBI_data = openIBI(IBI_dir)
-print(IBI_data)
+#IBI_data = openIBI(IBI_dir)
 #LP_data = openLP(LP_dir)
 #EFI_data = openEFI(EFI_dir)
 #print(IBI_data, LP_data, EFI_data)
+
+
+def mergeCDF(IBI, LP, EFI):
+
+    #Load cdf's
+    read_IBI = pd.read_hdf(IBI)
+    read_LP = pd.read_hdf(LP)
+    read_EFI = pd.read_hdf(EFI)
+    #print(read_IBI, read_LP, read_EFI)
+    
+    joined_cdf = read_IBI.merge(read_LP, on = 'datetime').merge(read_EFI, on = 'datetime')
+
+    def splitDatetime(df):
+        temp_df = df["datetime"].str.split(" ", n = 1, expand = True)
+        df["date"] = temp_df [0]
+        df["utc"] = temp_df [1]
+        df = df.reset_index().drop(columns=['datetime','index'])
+        df = df[['date','utc','mlt','lat','long','alt','b_ind','b_prob','Ne','Ti','pot','Te']]
+        return df
+
+    joined_cdf = splitDatetime(joined_cdf)
+    print(joined_cdf)
+
+mergeCDF(IBI_output, LP_output, EFI_output)
 
 #print('data successful extracted \n',LP_data)
 '''
@@ -190,9 +213,7 @@ def removeDatetime(df):
     temp_df = df["datetime"].str.split(" ", n = 1, expand = True)
     df["date"] = temp_df [0]
     df["utc"] = temp_df [1]
-    #df["utc"] = df['utc'].astype(str).str.slice(stop =-3)
     df = df.reset_index().drop(columns=['datetime','index'])
-    #df = df[['date','utc','lat','long','b_ind','b_prob','bub_flag','mag_flag']]
 
     return df
 
