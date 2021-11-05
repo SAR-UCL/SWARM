@@ -1,4 +1,10 @@
-#https://github.com/pignalberi/TITIPy/blob/master/Downloading_Swarm_data.py
+'''
+Adapted by Sachin Alexander Reddy, UCL MSSL.
+
+Main source: #https://github.com/pignalberi/TITIPy/blob/master/Downloading_Swarm_data.py
+
+03/11/21
+'''
 
 from ftplib import FTP
 import os
@@ -6,9 +12,9 @@ import zipfile
 import patoolib
 
 SATE = ['A','C']
-YEAR = [2017,2018,2019,2020]
-MONTH = [3,4,10,11,12]
-DAYS = 30
+YEAR = [2019]
+MONTH = [3]
+DAYS = 1
 
 for SAT in SATE:
     for YR in YEAR:
@@ -16,25 +22,23 @@ for SAT in SATE:
             for DOM in range(DAYS):
                 DOM = DOM + 1
                 
-                #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP'  #Density and potential
-                #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI' #Ion temp
-                #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IPD' #Bubbles and IPIR
-                path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI' #Bubbles and IPIR
+                path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/March-19'  #Density and potential
+                #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/March-19' #Ion temp
+                #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/April-16' #Bubbles and IPIR
 
                 path_initial = os.path.join(path,str(YR).zfill(4)+str(MON).zfill(2)+str(DOM).zfill(2)+str(SAT))
                 path_downloaded_data_LP=os.path.join(path_initial)
-                os.makedirs(path_downloaded_data_LP)
+                os.makedirs(path_downloaded_data_LP, exist_ok=True)
 
                 try:
                     for sat in SAT:
                         ftp = FTP('swarm-diss.eo.esa.int')   # connect to host, default port
-                        ftp.login()               # user anonymous, passwd anonymous
+                        ftp.login()   # user anonymous, passwd anonymous
                         
-                        
-                        #ftp.cwd('/Level1b/Latest_baselines/EFIxLPI/Sat_'+str(sat)) #Langmuir Probe (plasma den & space pot)
+                        #Specific the location of the instrument or product you wish you download
+                        ftp.cwd('/Level1b/Latest_baselines/EFIxLPI/Sat_'+str(sat)) #Langmuir Probe (plasma den & space pot)
                         #ftp.cwd('/Level2daily/Latest_baselines/EFI/TIE/Sat_'+str(sat)) #Electric field ins (ion temp)
-                        #ftp.cwd('/Level2daily/Latest_baselines/IPD/IRR/Sat_'+str(sat)) #Bubbles and iregularities
-                        ftp.cwd('/Level2daily/Latest_baselines/IBI/TMS/Sat_'+str(sat)) #Bubbles and iregularities
+                        #ftp.cwd('/Level2daily/Latest_baselines/IBI/TMS/Sat_'+str(sat)) #Bubbles and iregularities
                         
                         
                         listing=[]
@@ -89,4 +93,4 @@ for SAT in SATE:
                             os.remove(file)
                     print('Extraction for Swarm '+str(sat)+' for '+str(YR).zfill(4)+'/'+str(MON).zfill(2)+'/'+str(DOM).zfill(2)+' complete')
                 except RuntimeError:
-                    raise Exception('Problems extracting the SWARM file')
+                    raise Exception('Problems in connecting to or downloading from Swarm FTP')
