@@ -14,7 +14,7 @@ import zipfile
 import patoolib
 
 SATE = ['A','C'] #select spacecraft
-YEAR = [2019]
+YEAR = [2019,2020] #select years
 MONTH = [3]
 DAYS = 1 #how many days of data needed. Do not exceed 30
 START_DAY = 1 #start the loop
@@ -25,6 +25,7 @@ for SAT in SATE:
             for DOM in range(DAYS):
                 DOM = DOM + START_DAY
                 
+                #Select path for download
                 path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP'  #Density and potential
                 #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/March-19' #Ion temp
                 #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/April-16' #Bubbles and IPIR

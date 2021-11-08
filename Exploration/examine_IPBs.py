@@ -1,72 +1,97 @@
 
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.patches import Rectangle
 import pandas as pd
 import seaborn as sns
-#from matplotlib.colors import LogNorm
+from datetime import date
+
 
 #Loading and exporting
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Nov-21/data/'
-
-file_name = 'joined-data_20211104.h5'
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Nov-21/data/March-19/'
+today =  str(date.today())
+file_name = 'joined-data-'+ today +'.h5'
 load_hdf = path + file_name
 load_hdf = pd.read_hdf(load_hdf)
 
-load_hdf = load_hdf[load_hdf['date'] == '2016-04-05']
+#load_hdf = load_hdf[load_hdf['date'] == '2016-04-05']
 #load_hdf = load_hdf[load_hdf['b_ind'] == 1]
 #load_hdf = load_hdf[load_hdf['b_prob'] >= 0.85]
 #load_hdf = load_hdf[load_hdf['b_prob'].between(0.8, 0.9)]
-print(load_hdf)
+#print(load_hdf)
 
 
 #load_hdf = load_hdf[load_hdf['utc'].between('00:36', '00:53')] #2016-04-03. This is in the supervisor presi on 17-11-21
 #load_hdf = load_hdf[load_hdf['utc'].between('19:20', '19:32')] #2016-04-03b. This is in the supervisor presi on 17-11-21
 #load_hdf = load_hdf[load_hdf['utc'].between('21:30', '21:45:30')] #2017-04-17
-load_hdf = load_hdf[load_hdf['utc'].between('21:13', '21:25')] #2016-04-05
+#load_hdf = load_hdf[load_hdf['utc'].between('21:13', '21:25')] #2016-04-05
+#load_hdf = load_hdf[load_hdf['utc'].between('00:06', '00:11:40')] #2019-03-16 slim
+load_hdf = load_hdf[load_hdf['utc'].between('00:04', '00:12:20')] #2019-03-16
+#load_hdf = load_hdf[load_hdf['utc'].between('00:02', '00:14')] #2019-03-016 (wider)
 
-#load_hdf = load_hdf.drop_duplicates(subset=['utc'])
-#load_hdf = load_hdf[::20]
+#load_hdf = load_hdf[load_hdf['mlt'].between(0,6)]
+#load_hdf = load_hdf[load_hdf['lat'].between(-20,20)]
+#load_hdf = load_hdf[load_hdf['Ne_c'] <= -0.4]
 
 #load_hdf = load_hdf[::120]
 load_hdf = load_hdf.sort_values(by=['utc'], ascending = True)
+load_hdf = load_hdf[load_hdf['s_id'] == "C"]
 print(load_hdf)
+
 
 
 figs, axs = plt.subplots(ncols=1, nrows=5, figsize=(10,6.5), dpi=85, sharex=True) #3.5 for single, #5.5 for double
 axs = axs.flatten()
 
 x = 'utc'
+#sns.set_palette("Reds")
+palette, hue = 'rocket', 's_id'
+sns.lineplot(ax = axs[0], data = load_hdf, x = x, y ='b_prob', palette = 'bone_r', hue = hue)
+sns.lineplot(ax = axs[1], data = load_hdf, x = x, y ='Ne', palette = palette, hue = hue, legend = False)
+sns.lineplot(ax = axs[2], data = load_hdf, x = x, y ='Ne_c', palette = palette, hue = hue, legend = False)
+sns.lineplot(ax = axs[3], data = load_hdf, x = x, y ='Ne_std5', palette = palette, hue = hue, legend = False)
+sns.lineplot(ax = axs[4], data = load_hdf, x = x, y ='b_ind_sr', palette = palette, hue = hue)
 
-sns.lineplot(ax = axs[0], data = load_hdf, x = x, y ='b_prob')
-sns.scatterplot(ax = axs[1], data = load_hdf, x = x, y ='Ne')
-sns.scatterplot(ax = axs[2], data = load_hdf, x = x, y ='Ti')
-sns.scatterplot(ax = axs[3], data = load_hdf, x = x, y ='pot')
-sns.scatterplot(ax = axs[4], data = load_hdf, x = x, y ='Te')
+date_s = load_hdf['date'].iloc[0]
+date_e = load_hdf['date'].iloc[-1]
+utc_s = load_hdf['utc'].iloc[0]
+utc_e = load_hdf['utc'].iloc[-1]
 
-date = load_hdf['date'].iloc[0]
-axs[0].set_title(f'Equatorial Plasma Bubble: {date}', fontsize = 11)
+axs[0].set_title(f'Equatorial Plasma Bubble: from {date_s} at {utc_s} to {date_e} at {utc_e}', fontsize = 11)
 axs[0].set_ylabel('IPB Prob')
 axs[0].set_ylim(0, 1)
-axs[0].axhline( y=0.9, ls='-.', c='k')
+#axs[0].axhline( y=0.9, ls='-.', c='k')
+
+#left, bottom, width, height = (1, 0, 14, 7)
+#axs[4].add_patch(Rectangle((left, bottom),width, height, alpha=1, facecolor='none'))
+
 
 axs[1].set_yscale('log')
 den = r'cm$^{-3}$'
 axs[1].set_ylabel(f'Ne ({den})')
 #axs[1].axhline( y=60000, ls='-.', c='k')
 
-axs[2].set_ylabel('Ti (K)')
+
+#axs[2].set_yscale('log')
+#axs[2].set_ylabel('Ti (K)')
+axs[2].set_ylabel('Ne %/s')
 #axs[2].axhline( y=950, ls='-.', c='k')
 
-axs[3].set_ylabel('Pot (V)')
+#axs[3].set_ylabel('Pot (V)')
 
-axs[4].set_ylabel('Te (K)')
+#axs[4].set_ylabel('Te (K)')
 axs[4].set_xlabel(' ')
+axs[4].legend(loc="center left", title="Sat")
 
-n = 100  # Keeps every 7th label
+n = len(load_hdf) // 8
+#n = 50  # Keeps every 7th label
 [l.set_visible(False) for (i,l) in enumerate(axs[4].xaxis.get_ticklabels()) if i % n != 0]
 #axs[4].tick_params(axis='x',labelrotation=90)
 #ax[0].set_xticks[]
 #axs[0].set_xticks([], minor=False)
+
+#for tic in axs[4].xaxis.get_major_ticks():
+#    tic.tick1On = tic.tick2On = True
 
 plt.tight_layout()
 plt.show()

@@ -12,28 +12,38 @@ import cdflib
 import pandas as pd
 import glob
 from pathlib import Path
+import os
+from datetime import date
 
-IBI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/March-19')
-LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/March-19')
-EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/March-19')
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Nov-21/data/March-19/'
 
+
+IBI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/April-16')
+LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/April-16')
+EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/April-16')
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Nov-21/data/April-16/'
 
 #Output names
-IBI_output = path + 'IBI-data_March-19.h5'
-LP_output = path + 'LP-data_March-19.h5'
-EFI_output = path + 'EFI-data_March-19.h5'
-joined_output = path + 'joined-data_20211104.h5'
+IBI_output = path + 'IBI-data_April-16.h5'
+LP_output = path + 'LP-data_April-16.h5'
+EFI_output = path + 'EFI-data_April-16.h5'
+
+today =  str(date.today())
+#joined_output = path + 'joined-data_20211105.h5'
+joined_output = path + 'joined-data-'+ today +'.h5'
 
 def openIBI(dire):
 
     cdf_array = []
     cdf_files = dire.glob('**/*.cdf')
     
-    print ("Extracting IBI files...")
+    print ("Extracting IBI data...")
     try: 
         for f in cdf_files:
             cdf = cdflib.CDF(f) #assign to cdf object
+
+            #Get sat ID
+            sat_id = str(f)
+            sat_id = sat_id[-61:-60]
 
             #header
             utc = cdf.varget("Timestamp")
@@ -49,7 +59,7 @@ def openIBI(dire):
             #mag_flag = cdf.varget("Flags_F")
 
             #place in dataframe
-            cdf_df = pd.DataFrame({'datetime':utc,'lat':lat, 'long':lon,'b_ind':bub_ind, 'b_prob':bub_prob})
+            cdf_df = pd.DataFrame({'datetime':utc,'lat':lat, 'long':lon,'b_ind':bub_ind, 'b_prob':bub_prob,'s_id':sat_id})
             cdf_array.append(cdf_df)
             ibi_data = pd.concat(cdf_array)
 
@@ -71,7 +81,7 @@ def openIBI(dire):
 
     #Export
     ibi_data.to_hdf(IBI_output, key = 'ibi_data', mode = 'w')
-    print ('IBI file exported.')
+    print ('IBI data exported.')
     return ibi_data
 
 def openLP(dire):
@@ -83,6 +93,9 @@ def openLP(dire):
     try:
         for f in cdf_files:
             cdf = cdflib.CDF(f)
+
+            sat_id = str(f)
+            sat_id = sat_id[-132:-131]
 
             utc = cdf.varget("Timestamp")
             alt = cdf.varget("Radius")
@@ -99,7 +112,7 @@ def openLP(dire):
             Vs_flag = cdf.varget("Flags_Vs")
 
             cdf_df = pd.DataFrame({"datetime":utc, "alt":alt, "Ne":Ne, "Te":Te, "pot":Vs,
-                "pot_Te":Te_flag, "pot_Ne":ne_flag,"pot_f":Vs_flag})
+                "pot_Te":Te_flag, "pot_Ne":ne_flag,"pot_f":Vs_flag, "s_id":sat_id})
             cdf_array.append(cdf_df)
             
 
@@ -133,17 +146,21 @@ def openEFI(dire):
             for f in cdf_files:
                 cdf = cdflib.CDF(f)
 
+                #Get sat ID
+                sat_id = str(f)
+                sat_id = sat_id[-117:-116]
+
                 utc = cdf.varget("Timestamp")
                 mlt = cdf.varget("MLT")
-                Tn = cdf.varget("Tn_msis")
-                #Ti = cdf.varget("Ti_meas_drift")
+                #Tn = cdf.varget("Tn_msis")
+                Ti = cdf.varget("Ti_meas_drift")
                 #TiM = cdf.varget("Ti_model_drift")
 
                 #flag 
                 Ti_flag = cdf.varget("Flag_ti_meas")
 
                 #place in dataframe
-                cdf_df = pd.DataFrame({'datetime':utc, 'mlt':mlt, "Ti":Ti, "Ti_f":Ti_flag})
+                cdf_df = pd.DataFrame({'datetime':utc, 'mlt':mlt, "Ti":Ti, "Ti_f":Ti_flag, "s_id":sat_id})
                 cdf_array.append(cdf_df)
 
                 efi_data = pd.concat(cdf_array)
@@ -182,17 +199,67 @@ def mergeCDF(IBI, LP, EFI):
     read_EFI = pd.read_hdf(EFI)
     #print(read_IBI, read_LP, read_EFI)
     
-    joined_cdf = read_IBI.merge(read_LP, on = 'datetime').merge(read_EFI, on = 'datetime')
+    try:
+        print ('Joining dataframes...')
+        #Join the different dataframes
+        joined_cdf = read_IBI.merge(read_LP, on = ['datetime','s_id']).merge(read_EFI, on = ['datetime','s_id'])
 
-    def splitDatetime(df):
-        temp_df = df["datetime"].str.split(" ", n = 1, expand = True)
-        df["date"] = temp_df [0]
-        df["utc"] = temp_df [1]
-        df = df.reset_index().drop(columns=['datetime','index'])
-        df = df[['date','utc','mlt','lat','long','alt','b_ind','b_prob','Ne','Ti','pot','Te']]
-        return df
+        #Splits datetime into date & utc, then reorders the df
+        def splitDatetime(df):
+            temp_df = df["datetime"].str.split(" ", n = 1, expand = True)
+            df["date"] = temp_df [0]
+            df["utc"] = temp_df [1]
+            df = df.reset_index().drop(columns=['datetime','index'])
+        
+            return df
+        
+        joined_cdf = splitDatetime(joined_cdf)
+        joined_cdf = joined_cdf.sort_values(by=['s_id','utc'], ascending = True)
+        #print('Joined dataframe\n',joined_cdf)
+    
+    except RuntimeError:
+        raise Exception('Problems joining dataframes')
 
-    joined_cdf = splitDatetime(joined_cdf)
+    try:
+        print('Transforming dataframe...')
+        
+        def calcROC(df):
+            
+            #Rate of change cm/s or k/s or pot/s
+            pc_df = df[['Ne','Ti','pot','Te']].pct_change(periods=1) #change in seconds
+            pc_df = pc_df.rename(columns = {"Ne":"Ne_c", "Ti":"Ti_c", "pot":"pot_c", "Te":"Te_c"}) 
+            df = pd.concat([df, pc_df], axis=1)
+
+            #std deviation over change over x seconds
+            #How far, on average, the results are from the mean
+            std10_df = df[['Ne_c','Ti_c','pot_c']].rolling(5).std()
+            std20_df = df[['Ne','Ti_c','pot_c']].rolling(5).std()  
+            std10_df = std10_df.rename(columns = {"Ne_c":"Ne_std5", "Ti_c":"Ti_std10", "pot_c":"pot_std10"}) 
+            std20_df = std20_df.rename(columns = {"Ne":"Ne_5", "Ti_c":"Ti_std5", "pot_c":"pot_std5"})  
+            df = pd.concat([df,std10_df,std20_df], axis = 1)
+
+            df = df[['date','utc','mlt','lat','long','alt','s_id','b_ind','b_prob',
+                    'Ne','Ne_c','Ne_5','Ne_std5','Ti','Ti_c','Ti_std10','pot','pot_c','pot_std10','Te','Te_c']]
+            df = df.dropna()
+
+            return df
+
+        joined_cdf = calcROC(joined_cdf)
+        #print(joined_cdf)
+
+    except RuntimeError:
+        raise Exception('Problems transforming dataframe')
+
+    def classifyEPB(x):
+        if x > 0.1:
+            return 1
+        else:
+            return 0
+
+    joined_cdf['b_ind_sr'] = joined_cdf['Ne_std5'].apply(classifyEPB)
     print(joined_cdf)
 
-mergeCDF(IBI_output, LP_output, EFI_output)
+    joined_cdf.to_hdf(joined_output, key = 'efi_data', mode = 'w')
+    print('Joined dataframes exported')
+
+#mergeCDF(IBI_output, LP_output, EFI_output)
