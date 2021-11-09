@@ -16,7 +16,6 @@ import os
 from datetime import date
 
 
-
 IBI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/April-16')
 LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/April-16')
 EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/April-16')
@@ -28,7 +27,6 @@ LP_output = path + 'LP-data_April-16.h5'
 EFI_output = path + 'EFI-data_April-16.h5'
 
 today =  str(date.today())
-#joined_output = path + 'joined-data_20211105.h5'
 joined_output = path + 'joined-data-'+ today +'.h5'
 
 def openIBI(dire):
@@ -95,7 +93,7 @@ def openLP(dire):
             cdf = cdflib.CDF(f)
 
             sat_id = str(f)
-            sat_id = sat_id[-132:-131]
+            sat_id = sat_id[-72:-71]
 
             utc = cdf.varget("Timestamp")
             alt = cdf.varget("Radius")
@@ -114,13 +112,32 @@ def openLP(dire):
             cdf_df = pd.DataFrame({"datetime":utc, "alt":alt, "Ne":Ne, "Te":Te, "pot":Vs,
                 "pot_Te":Te_flag, "pot_Ne":ne_flag,"pot_f":Vs_flag, "s_id":sat_id})
             cdf_array.append(cdf_df)
+
+            def calcROC(df):
             
+                #Rate of change cm/s or k/s or pot/s
+                pc_df = df[['Ne','Te','pot']].pct_change(periods=1) #change in seconds
+                pc_df = pc_df.rename(columns = {"Ne":"Ne_c", "Te":"Te_c", "pot":"pot_c"}) 
+                df = pd.concat([df, pc_df], axis=1)
+
+                #std deviation over change over x seconds
+                #How far, on average, the results are from the mean
+                std5_df = df[['Ne_c','Te_c','pot_c']].rolling(10).std()
+                std5_df = std5_df.rename(columns = {"Ne_c":"Ne_std5", "Te_c":"Te_std5", "pot_c":"pot_std5"}) 
+                df = pd.concat([df,std5_df], axis = 1)
+
+                df = df.dropna()
+
+                return df
 
             lp_data = pd.concat(cdf_array)
+            lp_data = calcROC(lp_data)
+
+            #Remove flags
             lp_data = lp_data.loc[lp_data['pot_Te'] == 20]
             lp_data = lp_data.loc[lp_data['pot_Ne'] == 20]
             lp_data = lp_data.loc[lp_data['pot_f'] == 20]
-            lp_data = lp_data.drop(columns=['pot_Te','pot_Ne','pot_f'])
+            lp_data = lp_data.drop(columns=['pot_Te','pot_Ne','pot_f','Ne_c','Te_c','pot_c'])
 
     except RuntimeError:
         raise Exception('Problems extracting LP data')
@@ -148,7 +165,7 @@ def openEFI(dire):
 
                 #Get sat ID
                 sat_id = str(f)
-                sat_id = sat_id[-117:-116]
+                sat_id = sat_id[-61:-60]
 
                 utc = cdf.varget("Timestamp")
                 mlt = cdf.varget("MLT")
@@ -164,11 +181,29 @@ def openEFI(dire):
                 cdf_array.append(cdf_df)
 
                 efi_data = pd.concat(cdf_array)
+
+                def calcROC(df):
+                
+                    #Rate of change cm/s or k/s or pot/s
+                    pc_df = df[['Ti']].pct_change(periods=1) #change in seconds
+                    pc_df = pc_df.rename(columns = {"Ti":"Ti_c"}) 
+                    df = pd.concat([df, pc_df], axis=1)
+
+                    #std deviation over change over x seconds
+                    #How far, on average, the results are from the mean
+                    std5_df = df[['Ti_c']].rolling(10).std()
+                    std5_df = std5_df.rename(columns = {"Ti_c":"Ti_std5"}) 
+                    df = pd.concat([df,std5_df], axis = 1)
+
+                    df = df.dropna()
+
+                    return df
+        
+                efi_data = calcROC(efi_data)
+                
                 efi_data = efi_data[::2] #reduce to 1hz
                 efi_data = efi_data.loc[efi_data['Ti_f'] == 1]
-                efi_data = efi_data.drop(columns=['Ti_f'])
-
-                efi_data.to_hdf(EFI_output, key = 'efi_data')
+                efi_data = efi_data.drop(columns=['Ti_f','Ti_c'])
 
         except RuntimeError:
             raise Exception('Problems extracting EFI data')
@@ -188,7 +223,7 @@ def openEFI(dire):
 #Load open functions
 #IBI_data = openIBI(IBI_dir)
 #LP_data = openLP(LP_dir)
-#EFI_data = openEFI(EFI_dir)
+EFI_data = openEFI(EFI_dir)
 #print(IBI_data, LP_data, EFI_data)
 
 def mergeCDF(IBI, LP, EFI):
@@ -226,23 +261,25 @@ def mergeCDF(IBI, LP, EFI):
         def calcROC(df):
             
             #Rate of change cm/s or k/s or pot/s
-            pc_df = df[['Ne','Ti','pot','Te']].pct_change(periods=1) #change in seconds
-            pc_df = pc_df.rename(columns = {"Ne":"Ne_c", "Ti":"Ti_c", "pot":"pot_c", "Te":"Te_c"}) 
-            df = pd.concat([df, pc_df], axis=1)
+            #pc_df = df[['Ne','Ti','pot','Te']].pct_change(periods=1) #change in seconds
+            #pc_df = pc_df.rename(columns = {"Ne":"Ne_c", "Ti":"Ti_c", "pot":"pot_c", "Te":"Te_c"}) 
+            #df = pd.concat([df, pc_df], axis=1)
 
             #std deviation over change over x seconds
             #How far, on average, the results are from the mean
-            std10_df = df[['Ne_c','Ti_c','pot_c']].rolling(5).std()
-            std20_df = df[['Ne','Ti_c','pot_c']].rolling(5).std()  
-            std10_df = std10_df.rename(columns = {"Ne_c":"Ne_std5", "Ti_c":"Ti_std10", "pot_c":"pot_std10"}) 
-            std20_df = std20_df.rename(columns = {"Ne":"Ne_5", "Ti_c":"Ti_std5", "pot_c":"pot_std5"})  
-            df = pd.concat([df,std10_df,std20_df], axis = 1)
+            #std10_df = df[['Ne_c','Ti_c','pot_c']].rolling(5).std()
+            #std20_df = df[['Ne','Ti_c','pot_c']].rolling(5).std()  
+            #std10_df = std10_df.rename(columns = {"Ne_c":"Ne_std5", "Ti_c":"Ti_std10", "pot_c":"pot_std10"}) 
+            #std20_df = std20_df.rename(columns = {"Ne":"Ne_5", "Ti_c":"Ti_std5", "pot_c":"pot_std5"})  
+            #df = pd.concat([df,std10_df,std20_df], axis = 1)
 
             df = df[['date','utc','mlt','lat','long','alt','s_id','b_ind','b_prob',
-                    'Ne','Ne_c','Ne_5','Ne_std5','Ti','Ti_c','Ti_std10','pot','pot_c','pot_std10','Te','Te_c']]
+                    'Ne','Ne_std5','Ti','Ti_std5','pot','pot_std5','Te','Te_std5']]
             df = df.dropna()
 
             return df
+        
+        print('Transformed dataframe.')
 
         joined_cdf = calcROC(joined_cdf)
         #print(joined_cdf)
@@ -256,10 +293,10 @@ def mergeCDF(IBI, LP, EFI):
         else:
             return 0
 
-    joined_cdf['b_ind_sr'] = joined_cdf['Ne_std5'].apply(classifyEPB)
+    #joined_cdf['b_ind_sr'] = joined_cdf['Ne_std5'].apply(classifyEPB)
     print(joined_cdf)
 
     joined_cdf.to_hdf(joined_output, key = 'efi_data', mode = 'w')
     print('Joined dataframes exported')
 
-#mergeCDF(IBI_output, LP_output, EFI_output)
+mergeCDF(IBI_output, LP_output, EFI_output)
