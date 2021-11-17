@@ -28,33 +28,36 @@ def featureEng(df):
     #df = df.replace({'reg': {0: "equator", 1: "mid-lat", 2: "polar", 3:"auroral"}})
     #df = df[(df.reg != 'polar') & (df.reg != 'auroral')] #Remove auroral and polar classes
 
-    df = df[df['b_ind'] != -1]
-
-    def reindexIBI(x):
-        if x == -1:
-            x = 0
-        else:
-            x = 1
-        return x
-
-    #df['b_ind_2'] = df['b_ind'].apply(reindexIBI) 
-
-    def daynight(x):
-        if 6 <= x <= 18:
-            return 'day'
-        else:
-            return 'night'  
-
-    #df['hemi'] = df['mlt'].apply(daynight) 
-    
+    #Remove non-MLT and dayside data
     #df = df[df['b_ind'] != -1]
-    #df = df[df['hemi'] == 'day']
 
-    def potentialCalc(x):
-        if 6 <= x <= 18:
-            return -1.5
-        else:
-            return -2.5
+    #Remove non-low lat. Useful is day/night required
+    def lowLat(df):
+        df = df[df['lat'].between(-30,30)]
+        return df
+    
+    df = lowLat(df)
+
+    #Create daynight class. Useful if all latitudes required
+    def dayNight(df):
+        df = df[~df['mlt'].between(6,18)]
+        return df
+
+    df = dayNight(df)
+
+    '''
+        def potentialCalc(x):
+            if 6 <= x <= 18:
+                return -1.5
+            else:
+                return -2.5
+    '''
+
+    #Calcualte Major: Minor ratio
+    dfc = df.groupby(['n_prob']).count()
+    major = dfc['date'].iloc[0]
+    minor = dfc['date'].iloc[1]
+    print('Major : Minor = ', major//minor,': 1')
 
     #df['pot_s'] = df['mlt'].apply(potentialCalc)
 
@@ -74,6 +77,7 @@ def featureEng(df):
 
 engFeats = featureEng(load_hdf)
 print(engFeats)
+
 
 def selectNScale(df):
     from sklearn.preprocessing import StandardScaler
