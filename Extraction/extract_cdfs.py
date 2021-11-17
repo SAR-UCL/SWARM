@@ -27,7 +27,7 @@ LP_output = path + 'LP-data_April-16.h5'
 EFI_output = path + 'EFI-data_April-16.h5'
 
 today =  str(date.today())
-joined_output = path + 'joined-data-'+ today +'.h5'
+joined_output = path + 'joined-data-'+ today +'-Apr.h5'
 
 def openIBI(dire):
 
@@ -122,9 +122,9 @@ def openLP(dire):
 
                 #std deviation over change over x seconds
                 #How far, on average, the results are from the mean
-                std5_df = df[['Ne_c','Te_c','pot_c']].rolling(10).std()
-                std5_df = std5_df.rename(columns = {"Ne_c":"Ne_std5", "Te_c":"Te_std5", "pot_c":"pot_std5"}) 
-                df = pd.concat([df,std5_df], axis = 1)
+                std_df = df[['Ne_c','Te_c','pot_c']].rolling(10).std()
+                std_df = std_df.rename(columns = {"Ne_c":"Ne_std", "Te_c":"Te_std", "pot_c":"pot_std"}) 
+                df = pd.concat([df,std_df], axis = 1)
 
                 df = df.dropna()
 
@@ -189,11 +189,11 @@ def openEFI(dire):
                     pc_df = pc_df.rename(columns = {"Ti":"Ti_c"}) 
                     df = pd.concat([df, pc_df], axis=1)
 
-                    #std deviation over change over x seconds
+                    #std deviation over change over x 
                     #How far, on average, the results are from the mean
-                    std5_df = df[['Ti_c']].rolling(10).std()
-                    std5_df = std5_df.rename(columns = {"Ti_c":"Ti_std5"}) 
-                    df = pd.concat([df,std5_df], axis = 1)
+                    std_df = df[['Ti_c']].rolling(10).std()
+                    std_df = std_df.rename(columns = {"Ti_c":"Ti_std"}) 
+                    df = pd.concat([df,std_df], axis = 1)
 
                     df = df.dropna()
 
@@ -223,7 +223,7 @@ def openEFI(dire):
 #Load open functions
 #IBI_data = openIBI(IBI_dir)
 #LP_data = openLP(LP_dir)
-EFI_data = openEFI(EFI_dir)
+#EFI_data = openEFI(EFI_dir)
 #print(IBI_data, LP_data, EFI_data)
 
 def mergeCDF(IBI, LP, EFI):
@@ -249,7 +249,7 @@ def mergeCDF(IBI, LP, EFI):
             return df
         
         joined_cdf = splitDatetime(joined_cdf)
-        joined_cdf = joined_cdf.sort_values(by=['s_id','utc'], ascending = True)
+        joined_cdf = joined_cdf.sort_values(by=['s_id','date','utc'], ascending = True)
         #print('Joined dataframe\n',joined_cdf)
     
     except RuntimeError:
@@ -274,7 +274,7 @@ def mergeCDF(IBI, LP, EFI):
             #df = pd.concat([df,std10_df,std20_df], axis = 1)
 
             df = df[['date','utc','mlt','lat','long','alt','s_id','b_ind','b_prob',
-                    'Ne','Ne_std5','Ti','Ti_std5','pot','pot_std5','Te','Te_std5']]
+                    'Ne','Ne_std','Ti','Ti_std','pot','pot_std','Te','Te_std']]
             df = df.dropna()
 
             return df
@@ -287,13 +287,22 @@ def mergeCDF(IBI, LP, EFI):
     except RuntimeError:
         raise Exception('Problems transforming dataframe')
 
-    def classifyEPB(x):
-        if x > 0.1:
+    def tempCats(x, y):
+        if x > 0.095:
             return 1
         else:
             return 0
 
-    #joined_cdf['b_ind_sr'] = joined_cdf['Ne_std5'].apply(classifyEPB)
+    joined_cdf['temp_prob'] = joined_cdf.apply(lambda x: tempCats(x.Ne_std, x.pot_std), axis=1)
+
+    def newEPB(x, y):
+        import numpy as np
+        if x or y == np.abs(1):
+            return 1
+        else:
+            return 0
+
+    joined_cdf['n_prob'] = joined_cdf.apply(lambda x: newEPB(x.b_ind, x.temp_prob), axis=1)
     print(joined_cdf)
 
     joined_cdf.to_hdf(joined_output, key = 'efi_data', mode = 'w')

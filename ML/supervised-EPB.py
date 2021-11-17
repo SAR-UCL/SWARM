@@ -9,7 +9,7 @@ import seaborn as sns
 from matplotlib.colors import LogNorm
 
 #Loading and exporting
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Nov-21/data/'
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Nov-21/data/April-16/'
 
 #csv
 #file_name = r'may18-cleaned.csv'
@@ -17,7 +17,7 @@ path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/S
 #load_csv = pd.read_csv(load_csv)
 
 #HDF
-file_name = 'joined-data_20211104.h5'
+file_name = 'joined-data-2021-11-17-Apr.h5'
 load_hdf = path + file_name
 load_hdf = pd.read_hdf(load_hdf)
 #print(load_hdf)
@@ -28,7 +28,7 @@ def featureEng(df):
     #df = df.replace({'reg': {0: "equator", 1: "mid-lat", 2: "polar", 3:"auroral"}})
     #df = df[(df.reg != 'polar') & (df.reg != 'auroral')] #Remove auroral and polar classes
 
-    #df = df[df['b_ind'] != -1]
+    df = df[df['b_ind'] != -1]
 
     def reindexIBI(x):
         if x == -1:
@@ -108,7 +108,7 @@ def selectNScale(df):
 
     return x_data, y_data
 
-x_data, y_data = selectNScale(engFeats)
+#x_data, y_data = selectNScale(engFeats)
 
 '''Split the data into a training and test set''' 
 def trainTestSplit(x_data, y_data):
@@ -119,7 +119,7 @@ def trainTestSplit(x_data, y_data):
     #print(len(X_train))
     return X_train, X_test, y_train, y_test
 
-X_train, X_test, y_train, y_test = trainTestSplit(x_data, y_data)
+#X_train, X_test, y_train, y_test = trainTestSplit(x_data, y_data)
 
 def undersample(X, y):
     from imblearn.datasets import make_imbalance
@@ -131,7 +131,7 @@ def undersample(X, y):
     
     return X_rs, y_rs
 
-X_train, y_train = undersample(X_train, y_train)
+#X_train, y_train = undersample(X_train, y_train)
 
 def randomForest():
     from sklearn.ensemble import RandomForestClassifier
@@ -195,7 +195,7 @@ def saveModel():
     #y_pred = model.predict(X_test) 
     #print("Accuracy:",metrics.accuracy_score(y_test, y_pred))
 
-saveModel()
+#saveModel()
 
 def pltSKL():
 
@@ -248,5 +248,5 @@ def pltSKL():
     plt.tight_layout()
     plt.show()
 
-pltSKL()
+#pltSKL()
 
