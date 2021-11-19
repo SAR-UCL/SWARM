@@ -27,7 +27,8 @@ LP_output = path + 'LP-data_April-16.h5'
 EFI_output = path + 'EFI-data_April-16.h5'
 
 today =  str(date.today())
-joined_output = path + 'joined-data-'+ today +'-Apr.h5'
+joined_output = path + 'joined-data-'+ today +'.h5'
+
 
 def openIBI(dire):
 
@@ -250,69 +251,36 @@ def mergeCDF(IBI, LP, EFI):
         
         joined_cdf = splitDatetime(joined_cdf)
         joined_cdf = joined_cdf.sort_values(by=['s_id','date','utc'], ascending = True)
+        joined_cdf = joined_cdf[['date','utc','mlt','lat','long','alt','s_id','b_ind','b_prob',
+                    'Ne','Ne_std','Ti','Ti_std','pot','pot_std','Te','Te_std']]
         #print('Joined dataframe\n',joined_cdf)
     
     except RuntimeError:
         raise Exception('Problems joining dataframes')
 
-    try:
-        print('Transforming dataframe...')
-        
-        def calcROC(df):
-            
-            #Rate of change cm/s or k/s or pot/s
-            #pc_df = df[['Ne','Ti','pot','Te']].pct_change(periods=1) #change in seconds
-            #pc_df = pc_df.rename(columns = {"Ne":"Ne_c", "Ti":"Ti_c", "pot":"pot_c", "Te":"Te_c"}) 
-            #df = pd.concat([df, pc_df], axis=1)
-
-            #std deviation over change over x seconds
-            #How far, on average, the results are from the mean
-            #std10_df = df[['Ne_c','Ti_c','pot_c']].rolling(5).std()
-            #std20_df = df[['Ne','Ti_c','pot_c']].rolling(5).std()  
-            #std10_df = std10_df.rename(columns = {"Ne_c":"Ne_std5", "Ti_c":"Ti_std10", "pot_c":"pot_std10"}) 
-            #std20_df = std20_df.rename(columns = {"Ne":"Ne_5", "Ti_c":"Ti_std5", "pot_c":"pot_std5"})  
-            #df = pd.concat([df,std10_df,std20_df], axis = 1)
-
-            df = df[['date','utc','mlt','lat','long','alt','s_id','b_ind','b_prob',
-                    'Ne','Ne_std','Ti','Ti_std','pot','pot_std','Te','Te_std']]
-            df = df.dropna()
-
-            return df
-        
-        print('Transformed dataframe.')
-
-        joined_cdf = calcROC(joined_cdf)
-        #print(joined_cdf)
-
-    except RuntimeError:
-        raise Exception('Problems transforming dataframe')
-
-    def tempCats(x, y):
-        if x > 0.095:
-            return 1
-        else:
-            return 0
-
-    joined_cdf['temp_prob'] = joined_cdf.apply(lambda x: tempCats(x.Ne_std, x.pot_std), axis=1)
-
-    def newEPB(x, y):
-        import numpy as np
-        if x or y == np.abs(1):
-            return 1
-        else:
-            return 0
-
-    joined_cdf['n_prob'] = joined_cdf.apply(lambda x: newEPB(x.b_ind, x.temp_prob), axis=1)
-    #print(joined_cdf)
+    print(joined_cdf)
 
     joined_cdf.to_hdf(joined_output, key = 'efi_data', mode = 'w')
     print('Joined dataframes exported')
 
 merged_cdf = mergeCDF(IBI_output, LP_output, EFI_output)
 
-def createFeatures(df):
-    #file_name = 'joined-data-2021-11-17-Apr.h5'
-    #load_hdf = path + file_name
-    #print(df)
 
-#createFeatures(merged_cdf)
+class MyClass(object):
+    def __init__(self):
+        import numpy as np
+        self.df = pd.DataFrame(np.arange(12).reshape(3, 4),
+                  columns=['A', 'B', 'C', 'D']) #shared isntance 
+
+    def drop(self):
+        df = self.df.drop(['B','C'], axis=1)
+        return df
+
+    def add(self):
+        df = self.d
+
+#a = MyClass()
+#x = a.drop()
+#print(x)
+#x = a.fun1('Hello ')
+#y = a.fun2(2)

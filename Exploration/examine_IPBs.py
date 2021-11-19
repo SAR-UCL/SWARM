@@ -7,30 +7,231 @@ import seaborn as sns
 from datetime import date
 
 
-#Loading and exporting
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Nov-21/data/April-16/'
+#Load exported .hdf files
+hdf_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Nov-21/data/April-16/'
 today =  str(date.today())
-file_name = 'joined-data-'+ today +'-Apr.h5'
-load_hdf = path + file_name
+file_name = 'joined-data-'+ today +'.h5'
+load_hdf = hdf_path + file_name
 load_hdf = pd.read_hdf(load_hdf)
 
 load_hdf = load_hdf[load_hdf['date'] == '2016-04-07']
 
+#print(load_hdf)
+
+class WrangleData():
+    
+    def __init__(self, pathfile, select_date=None):
+        df = pd.read_hdf(pathfile)
+        self.df = df if select_date is None else df[df['date'] == select_date]
+
+    @classmethod  # method that can be called before obj is created
+    def frompath(cls, hdf_path, select_date=None):
+        today =  str(date.today())
+        file_name = 'joined-data-'+ today +'.h5'
+        return cls(hdf_path+file_name, select_date)
+
+    def classifyEPB(self, ne_std, b_ind, ti_std, pot_std):
+        #if ne_std > 0.095 or b_ind == 1:
+        if ne_std > 0.095 or ti_std > 0.01 or pot_std > 0.01:
+            return 1
+        else:
+            return 0
+
+    def transformEPB(self):
+
+        self.df = self.df[self.df['b_ind']!= -1] #remove non-useful data
+        #self.df = self.df[self.df['long'].between(10,180)] #remove the SSA
+        self.df = self.df[~self.df['mlt'].between(6,18)] #Nightime only
+
+
+        self.df = self.df[self.df['s_id'] == "A"]
+        #self.df = self.df[self.df['utc'].between('19:55:00', '20:10:00')]
+        self.df = self.df[self.df['lat'].between(-30,30)] #EPB region 
+
+        self.df['epb'] = self.df.apply(lambda x: self.classifyEPB(x.Ne_std, 
+                x.b_ind, x.Ti_std, x.pot_std), axis=1)
+        #self.df = self.df[self.df['epb'] == 1]
+        
+        #print(self.df)
+        return self.df
+
+select_date = '2016-04-07'
+w = WrangleData.frompath(hdf_path)
+cleaned_df = w.transformEPB()
+
+
+class PlotEPB():
+
+    def __init__(self, df):
+        self.df = df
+
+    def plotPanels(self):
+
+        figs, axs = plt.subplots(ncols=1, nrows=8, figsize=(10,7), 
+            dpi=90, sharex=True) #3.5 for single, #5.5 for double
+        axs = axs.flatten()
+
+        x = 'utc'
+        palette_ne, palette_ti, palette_pot = 'Set1', 'Set2', 'tab10'
+        hue = 's_id'
+        sns.lineplot(ax = axs[0], data = self.df, x = x, y ='b_prob', 
+                palette = 'bone_r', hue = hue, legend =False)
+        sns.lineplot(ax = axs[1], data = self.df, x = x, y ='Ne', 
+                palette = palette_ne, hue = hue, legend = False)
+        sns.lineplot(ax = axs[2], data = self.df, x = x, y ='Ne_std', 
+                palette = palette_ne, hue = hue, legend = False)
+        sns.lineplot(ax = axs[3], data = self.df, x = x, y ='Ti', 
+                palette = palette_ti, hue = hue, legend = False)
+        sns.lineplot(ax = axs[4], data = self.df, x = x, y ='Ti_std', 
+                palette = palette_ti, hue = hue,legend = False) 
+        sns.lineplot(ax = axs[5], data = self.df, x = x, y ='pot', 
+                palette = palette_pot, hue = hue, legend = False)
+        sns.lineplot(ax = axs[6], data = self.df, x = x, y ='pot_std', 
+                palette = palette_pot, hue = hue,legend = False, markers=False)
+        sns.lineplot(ax = axs[7], data = self.df, x = x, y ='epb', 
+                palette = 'bone_r', hue = hue,legend = False)
+
+        date_s = self.df['date'].iloc[0]
+        date_e = self.df['date'].iloc[-1]
+        utc_s = self.df['utc'].iloc[0]
+        utc_e = self.df['utc'].iloc[-1]
+
+        #axs[0].set_title(f'Equatorial Plasma Bubble: from {date_s} at {utc_s} to {date_e} at {utc_e}', fontsize = 11)
+
+        epb_check = self.df['epb'].sum()
+        if epb_check > 0:
+            title = 'Equatorial Plasma Bubble'
+        else:
+            title = 'Quiet Period'
+
+        axs[0].set_title(f'{title}: from {date_s} at {utc_s} to {date_e} at {utc_e}', fontsize = 11)
+        axs[0].set_ylabel('EPB Prob')
+        axs[0].set_ylim(0, 1)
+        axs[0].tick_params(bottom = False)
+        #axs[0].axhline( y=0.9, ls='-.', c='k')
+
+        #left, bottom, width, height = (1, 0, 14, 7)
+        #axs[4].add_patch(Rectangle((left, bottom),width, height, alpha=1, facecolor='none'))
+
+
+        axs[1].set_yscale('log')
+        den = r'cm$^{-3}$'
+        axs[1].set_ylabel(f'Ne ({den})')
+        axs[1].tick_params(bottom = False)
+        #axs[1].axhline( y=60000, ls='-.', c='k')
+
+        #axs[2].set_yscale('log')
+        #axs[2].set_ylabel('Ti (K)')
+        axs[2].set_ylabel('Ne \n stddev')
+        #axs[2].axhline( y=950, ls='-.', c='k')
+        #axs[2].set_ylim(0,1)
+        axs[2].tick_params(bottom = False)
+
+        axs[3].set_ylabel('Ti (K)')
+        axs[3].tick_params(bottom = False)
+
+
+        axs[4].set_ylabel('Ti \n stddev')
+        #axs[4].set_ylim(0,1)
+        axs[4].tick_params(bottom = False)
+        #axs[4].set_xlabel(' ')
+        #axs[4].legend(loc="center left", title="Sat")
+
+        axs[5].set_ylabel('Pot (V)')
+        axs[5].tick_params(bottom = False)
+
+        axs[6].set_ylabel('Pot \n stddev')
+        #axs[6].set_ylim(0,0.5)
+        axs[6].tick_params(bottom = False)
+
+
+        axs[7].set_ylabel('IPB Prob \n proposed')
+        #axs[7].invert_xaxis()
+
+        n = len(self.df) // 8
+        #n = 50  # Keeps every 7th label
+        [l.set_visible(False) for (i,l) in 
+                enumerate(axs[7].xaxis.get_ticklabels()) if i % n != 0]
+        #axs[4].tick_params(axis='x',labelrotation=90)
+        #ax[0].set_xticks[]
+        #axs[0].set_xticks([], minor=False)
+
+        #for tic in axs[4].xaxis.get_major_ticks():
+        #    tic.tick1On = tic.tick2On = True
+
+        plt.tight_layout()
+        plt.show()
+
+    def plotEPBCount(self):
+        #self.df == self.df
+        print(self.df)
+
+        figs, axs = plt.subplots(ncols=2, nrows=1, figsize=(9.5, 4), 
+                sharey=True)
+        axs = axs.flatten()
+
+        self.df.plot(kind="scatter", x="long", y="lat", alpha=0.4, ax=axs[0],
+                c="epb", cmap=plt.get_cmap("jet"), colorbar=True)
+
+        self.df.plot(kind="scatter", x="long", y="lat", alpha=0.4, ax=axs[1],
+                c="b_ind", cmap=plt.get_cmap("jet"), colorbar=True)
+
+        plt.legend()
+        plt.show()
+
+
+p = PlotEPB(cleaned_df)
+#panels = p.plotPanels()
+counts = p.plotEPBCount()
+
+#select_date = '2016-04-01'
+#w = wrangler.frompath(hdf_path, select_date)
+
+#p = plot()
+#plot_panels = p.plotPanels()
+#prepplots(w)
+
+# df = w.filter()
+# df['epb'] = df.apply(lambda x: w.classifyEPB(x.Ne_std, x.b_ind), axis=1)
+# print(df)
+
+#print('classy \n',filt)
+
+
+
+def tempCats(x, y):
+    if x > 0.095:
+        return 1
+    else:
+        return 0
+
+#joined_cdf['temp_prob'] = joined_cdf.apply(lambda x: tempCats(x.Ne_std, x.pot_std), axis=1)
+
+def newEPB(x, y):
+    import numpy as np
+    if x or y == np.abs(1):
+        return 1
+    else:
+        return 0
+
+#joined_cdf['n_prob'] = joined_cdf.apply(lambda x: newEPB(x.b_ind, x.temp_prob), axis=1)
+
+
 def removeSSA(df):
     df = df[df['long'].between(10,180)]
     return df
-load_hdf = removeSSA(load_hdf)
+#load_hdf = removeSSA(load_hdf)
 
 def dayNight(df):
     df = df[~df['mlt'].between(6,18)]
     return df
-load_hdf = dayNight(load_hdf)
+#load_hdf = dayNight(load_hdf)
 
 #load_hdf = load_hdf[load_hdf['b_ind'] == 0]
 #load_hdf = load_hdf[load_hdf['b_prob'] >= 0.85]
 #load_hdf = load_hdf[load_hdf['b_prob'].between(0.8, 0.9)]
 #print(load_hdf)
-
+'''
 
 #load_hdf = load_hdf[load_hdf['utc'].between('00:36', '00:53')] #2016-04-03. This is in the supervisor presi on 17-11-21
 #load_hdf = load_hdf[load_hdf['utc'].between('00:40', '00:50')] #2016-04-03. This is in the supervisor presi on 17-11-21
@@ -79,7 +280,7 @@ sns.lineplot(ax = axs[3], data = load_hdf, x = x, y ='Ti', palette = palette_ti,
 sns.lineplot(ax = axs[4], data = load_hdf, x = x, y ='Ti_std', palette = palette_ti, hue = hue,legend = False) 
 sns.lineplot(ax = axs[5], data = load_hdf, x = x, y ='pot', palette = palette_pot, hue = hue, legend = False)
 sns.lineplot(ax = axs[6], data = load_hdf, x = x, y ='pot_std', palette = palette_pot, hue = hue,legend = False)
-sns.lineplot(ax = axs[7], data = load_hdf, x = x, y ='n_prob', palette = 'bone_r', hue = hue,legend = False)
+#sns.lineplot(ax = axs[7], data = load_hdf, x = x, y ='n_prob', palette = 'bone_r', hue = hue,legend = False)
 
 date_s = load_hdf['date'].iloc[0]
 date_e = load_hdf['date'].iloc[-1]
@@ -134,7 +335,7 @@ axs[7].set_ylabel('IPB Prob \n proposed')
 
 plt.tight_layout()
 plt.show()
-
+'''
 
 #Single Plot
 '''

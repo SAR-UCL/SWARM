@@ -91,7 +91,7 @@ def PlotLatLong():
     #cbar=True, shade_lowest=False)
 
     
-    figs, axs = plt.subplots(ncols=2, nrows=2, figsize=(9.5,6.5), sharex=False, sharey=True) #3.5 for single, #5.5 for double
+    figs, axs = plt.subplots(figsize=(9.5,6.5), sharex=False, sharey=True) #3.5 for single, #5.5 for double
     axs = axs.flatten()
 
     training_only.plot(kind="scatter", x="long", y="lat", alpha=0.4, ax = axs[0],
