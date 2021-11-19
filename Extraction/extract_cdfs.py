@@ -303,9 +303,16 @@ def mergeCDF(IBI, LP, EFI):
             return 0
 
     joined_cdf['n_prob'] = joined_cdf.apply(lambda x: newEPB(x.b_ind, x.temp_prob), axis=1)
-    print(joined_cdf)
+    #print(joined_cdf)
 
     joined_cdf.to_hdf(joined_output, key = 'efi_data', mode = 'w')
     print('Joined dataframes exported')
 
-mergeCDF(IBI_output, LP_output, EFI_output)
+merged_cdf = mergeCDF(IBI_output, LP_output, EFI_output)
+
+def createFeatures(df):
+    #file_name = 'joined-data-2021-11-17-Apr.h5'
+    #load_hdf = path + file_name
+    #print(df)
+
+#createFeatures(merged_cdf)

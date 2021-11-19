@@ -24,26 +24,27 @@ load_hdf = pd.read_hdf(load_hdf)
 
 def featureEng(df):
 
-    #Remove auroral and polar classes. NB #25-10-21. You can rebalance with SMOTE algorithm and random undersampling
-    #df = df.replace({'reg': {0: "equator", 1: "mid-lat", 2: "polar", 3:"auroral"}})
-    #df = df[(df.reg != 'polar') & (df.reg != 'auroral')] #Remove auroral and polar classes
-
     #Remove non-MLT and dayside data
-    #df = df[df['b_ind'] != -1]
+    df = df[df['b_ind'] != -1]
 
     #Remove non-low lat. Useful is day/night required
     def lowLat(df):
         df = df[df['lat'].between(-30,30)]
         return df
-    
     df = lowLat(df)
 
     #Create daynight class. Useful if all latitudes required
     def dayNight(df):
         df = df[~df['mlt'].between(6,18)]
         return df
-
     df = dayNight(df)
+
+    #Remove SSA 
+    #Heirtzler, J. R. (2002). The future of the South Atlantic anomaly and implications for radiation damage in space. Journal of Atmospheric and Solar-Terrestrial Physics, 64(16), 1701-1708.
+    def removeSSA(df):
+        df = df[df['long'].between(10,180)]
+        return df
+    df = removeSSA(df)
 
     '''
         def potentialCalc(x):
@@ -55,6 +56,7 @@ def featureEng(df):
 
     #Calcualte Major: Minor ratio
     dfc = df.groupby(['n_prob']).count()
+    print('counts',dfc)
     major = dfc['date'].iloc[0]
     minor = dfc['date'].iloc[1]
     print('Major : Minor = ', major//minor,': 1')
@@ -76,8 +78,7 @@ def featureEng(df):
     return df
 
 engFeats = featureEng(load_hdf)
-print(engFeats)
-
+#print(engFeats)
 
 def selectNScale(df):
     from sklearn.preprocessing import StandardScaler
@@ -101,47 +102,52 @@ def selectNScale(df):
     #print(y_data)
 
     '''
-    #Visualise pre-ML
-    plt.figure(figsize=(5,3.5), dpi=90)
-    plt.rcParams['font.size'] = '9.5' 
-    #plt.title('Potential vs. Density\n')
-    sns.scatterplot(data = df, x = 'rod', y='F', hue = 'IPIR', palette='Set2')
-    #plt.yscale('log')
-    plt.tight_layout()
-    plt.show()'''
+        #Visualise pre-ML
+        plt.figure(figsize=(5,3.5), dpi=90)
+        plt.rcParams['font.size'] = '9.5' 
+        #plt.title('Potential vs. Density\n')
+        sns.scatterplot(data = df, x = 'rod', y='F', hue = 'IPIR', palette='Set2')
+        #plt.yscale('log')
+        plt.tight_layout()
+        plt.show()
+    '''
 
     return x_data, y_data
 
-#x_data, y_data = selectNScale(engFeats)
+x_data, y_data = selectNScale(engFeats)
 
 '''Split the data into a training and test set''' 
 def trainTestSplit(x_data, y_data):
     from sklearn.model_selection import train_test_split
 
-    X_train, X_test, y_train, y_test = train_test_split(x_data, y_data, test_size = 0.1, random_state=0) #test 0.2 = 20%
+    X_train, X_test, y_train, y_test = train_test_split(x_data, y_data, test_size = 0.1, random_state=42) #test 0.2 = 20%
 
     #print(len(X_train))
     return X_train, X_test, y_train, y_test
 
-#X_train, X_test, y_train, y_test = trainTestSplit(x_data, y_data)
+X_train, X_test, y_train, y_test = trainTestSplit(x_data, y_data)
 
-def undersample(X, y):
+def resample(X, y):
+    from collections import Counter
     from imblearn.datasets import make_imbalance
-    X_rs, y_rs = make_imbalance(X, y, sampling_strategy={-1: 300, 0: 300},
-                      random_state=0)
-    #print('Random undersampling {}'.format(Counter(y_rs)))
-    #plot_this(X_rs,y_rs,'Random undersampling')
-    #print(X_rs)
+    from imblearn.over_sampling import SMOTE
+
+    #https://imbalanced-learn.org/dev/references/generated/
+    #imblearn.over_sampling.SMOTE.html
+    sm = SMOTE(random_state = 42)
+    X_rs, y_rs = sm.fit_resample(X,y)
+
+    #print('Orignal data shape%s' %Counter(y))
+    #print('Resampled data shape%s' %Counter(y_rs))
     
     return X_rs, y_rs
 
-#X_train, y_train = undersample(X_train, y_train)
+X_train, y_train = resample(X_train, y_train)
 
 def randomForest():
     from sklearn.ensemble import RandomForestClassifier
 
-    model = RandomForestClassifier(n_estimators=75, min_samples_leaf=2, bootstrap=True, random_state=0,
-        class_weight='balanced')
+    model = RandomForestClassifier(n_estimators=75, min_samples_leaf=1, bootstrap=True, random_state=42)
     model = model.fit(X_train, y_train)
 
     model.n_features_
@@ -172,7 +178,7 @@ def sgd():
     return model
 
 #Model
-model_name = 'random-forest_041121.pkl'
+model_name = 'gauss_181121.pkl'
 model_pathfile = path + model_name
 
 def saveModel():
@@ -181,25 +187,32 @@ def saveModel():
     import pickle
     from sklearn import metrics
 
-    #model = gaussian()
-    model = randomForest()
+    try:
+        print('Creating ML model...')
+        #model = gaussian()
+        model = randomForest()
+        #model = sgd()
 
-    #Split set and cross-validate. Reduces risk of over-fitting.
-    scores = cross_val_score(model, X_train, y_train, cv=5)
-    print("μ accuracy: %0.2f, σ: %0.2f" % (scores.mean(), scores.std()))
+        #Split set and cross-validate. Reduces risk of over-fitting.
+        scores = cross_val_score(model, X_train, y_train, cv=5)
+        print("μ accuracy: %0.2f, σ: %0.2f" % (scores.mean(), scores.std()))
 
-    #See (hyper)parameters. Useful for optimisation
-    #print(model.get_params())
+        #See (hyper)parameters. Useful for optimisation
+        #print(model.get_params())
 
-    with open(model_pathfile, 'wb') as file:
-        pickle.dump(model, file)
+        with open(model_pathfile, 'wb') as file:
+            pickle.dump(model, file)
+    
+    except RuntimeError:
+        raise Exception('Problems with model')
+
     
     print('Model exported \n')
-    
+
     #y_pred = model.predict(X_test) 
     #print("Accuracy:",metrics.accuracy_score(y_test, y_pred))
 
-#saveModel()
+saveModel()
 
 def pltSKL():
 
@@ -212,8 +225,8 @@ def pltSKL():
     with open(model_pathfile, 'rb') as file:
         model = pickle.load(file)
     
-    y_pred = model.predict(X_test) #based on the model, predict classes (equator, mid-lat, etc) of test set 
-    y_probas = model.predict_proba(X_test) #based on the model, predict probability of classes: equator 0.8%, mid-lat 0.65%
+    y_pred = model.predict(X_test) #based on the model, predict EPB or not EPB 
+    y_probas = model.predict_proba(X_test) #based on the model, predict probability of classes: EPB 0.8%, not EPB 0.65% etc
 
     #print("Accuracy:",metrics.accuracy_score(y_test, y_pred))
     accuracy = metrics.accuracy_score(y_test, y_pred)
@@ -226,6 +239,13 @@ def pltSKL():
     #Good for testing
     #for i in range(10):
     #    print("X:%s, Pred:%s Prob:%s" % (X_test[i], y_pred[i], y_probas[i]))
+
+    #skplt.estimators.plot_feature_importances(model, feature_names=features)
+    #skplt.metrics.plot_confusion_matrix(y_test, y_pred)
+    #skplt.metrics.plot_precision_recall(y_test, y_probas) #appropirate for imbalanced data
+    #skplt.metrics.plot_roc(y_test, y_probas) #approporate for balanced data
+    #skplt.estimators.plot_learning_curve(model, X_train, y_train)
+    
     
     #Plot the different metrics
     figs, axs = plt.subplots(ncols=2, nrows=2, figsize=(8.5,5.5), dpi=90) #3.5 for single, #5.5 for double
@@ -233,24 +253,26 @@ def pltSKL():
 
     #Decor
     #plt.rcParams['font.size'] = '9.5' 
-    figs.suptitle(f'Determining Diurnality \n Classifier accuracy: {accuracy}%, Cadence: 30s')
+    #figs.suptitle(f'Determining Diurnality \n Classifier accuracy: {accuracy}%, Cadence: 30s')
     #plt.rcParams['font.size'] = '9.5'  
     #figs.subplots_adjust(top=0.88)
 
-    #skplt.metrics.plot_roc(y_test, y_probas, ax=axs[1])
+    #skplt.estimators.plot_learning_curve(model, X_train, y_train, ax=axs[0]) #very slow
     skplt.estimators.plot_feature_importances(model, feature_names=features, ax=axs[1])
+    skplt.metrics.plot_roc(y_test, y_probas, ax=axs[2]) #For balanced data
+    #skplt.metrics.plot_precision_recall(y_test, y_probas, ax=axs[2]) #for imbalanced data
     skplt.metrics.plot_confusion_matrix(y_test, y_pred, ax = axs[3])
-    skplt.metrics.plot_precision_recall(y_test, y_probas, ax=axs[2])
-    skplt.estimators.plot_learning_curve(model, X_train, y_train, ax=axs[0])
+
+
     
 
     #axs[0].legend(prop={'size': 9.5})
     #axs[1].legend(prop={'size': 9.5})
     #axs[1].get_legend().remove()
-
+    
     
     plt.tight_layout()
     plt.show()
 
-#pltSKL()
+pltSKL()
 
