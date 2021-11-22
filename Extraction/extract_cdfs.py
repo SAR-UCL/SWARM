@@ -264,23 +264,3 @@ def mergeCDF(IBI, LP, EFI):
     print('Joined dataframes exported')
 
 merged_cdf = mergeCDF(IBI_output, LP_output, EFI_output)
-
-
-class MyClass(object):
-    def __init__(self):
-        import numpy as np
-        self.df = pd.DataFrame(np.arange(12).reshape(3, 4),
-                  columns=['A', 'B', 'C', 'D']) #shared isntance 
-
-    def drop(self):
-        df = self.df.drop(['B','C'], axis=1)
-        return df
-
-    def add(self):
-        df = self.d
-
-#a = MyClass()
-#x = a.drop()
-#print(x)
-#x = a.fun1('Hello ')
-#y = a.fun2(2)

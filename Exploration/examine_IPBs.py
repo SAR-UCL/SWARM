@@ -9,14 +9,6 @@ from datetime import date
 
 #Load exported .hdf files
 hdf_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Nov-21/data/April-16/'
-today =  str(date.today())
-file_name = 'joined-data-'+ today +'.h5'
-load_hdf = hdf_path + file_name
-load_hdf = pd.read_hdf(load_hdf)
-
-load_hdf = load_hdf[load_hdf['date'] == '2016-04-07']
-
-#print(load_hdf)
 
 class WrangleData():
     
@@ -32,32 +24,58 @@ class WrangleData():
 
     def classifyEPB(self, ne_std, b_ind, ti_std, pot_std):
         #if ne_std > 0.095 or b_ind == 1:
-        if ne_std > 0.095 or ti_std > 0.01 or pot_std > 0.01:
+        if ne_std > 0.095 or ti_std > 0.01 and pot_std > 0.01:
             return 1
         else:
             return 0
 
-    def transformEPB(self):
+    def transformEPB(self, sat):
 
         self.df = self.df[self.df['b_ind']!= -1] #remove non-useful data
         #self.df = self.df[self.df['long'].between(10,180)] #remove the SSA
         self.df = self.df[~self.df['mlt'].between(6,18)] #Nightime only
 
-
-        self.df = self.df[self.df['s_id'] == "A"]
-        #self.df = self.df[self.df['utc'].between('19:55:00', '20:10:00')]
+        self.df = self.df[self.df['s_id'] == sat]
+        self.df = self.df[self.df['utc'].between('02:58:40', '03:04:40')]
         self.df = self.df[self.df['lat'].between(-30,30)] #EPB region 
 
         self.df['epb'] = self.df.apply(lambda x: self.classifyEPB(x.Ne_std, 
                 x.b_ind, x.Ti_std, x.pot_std), axis=1)
         #self.df = self.df[self.df['epb'] == 1]
+
+        self.df['change'] = self.df['epb'] - self.df['epb'].shift(1)
+        self.df = self.df.replace({'change':{-1:2}})
+        self.df['temp'] = np.where((self.df['epb'] == 1) 
+                & (self.df['change'] == 0), 1.5, 0)
+
+        #https://stackoverflow.com/questions/39109045/
+        #numpy-where-with-multiple-conditions
+        conditions = [self.df['change'] == 1, self.df['temp'] == 1.5, 
+                 self.df['change'] ==2]
+        output = [1,1.5,2]
+        self.df['cat'] = np.select(conditions, output, default = '0')
+        self.df = self.df[self.df['cat'].between('1','2')]
         
-        #print(self.df)
+        self.df = self.df.drop(columns=['change','temp'], axis=1)
+       
+        # check_epb = self.df[self.df['change']!= 0] 
+        # check_epb = check_epb.dropna()
+
+        print(self.df)
+        # print(check_epb)
         return self.df
 
-select_date = '2016-04-07'
-w = WrangleData.frompath(hdf_path)
-cleaned_df = w.transformEPB()
+        #self.countEPB()
+    
+
+
+select_date = '2016-04-02'
+#select_date = None
+w = WrangleData.frompath(hdf_path, select_date)
+
+sat = 'C'
+cleaned_df = w.transformEPB(sat)
+#print(cleaned_df)
 
 
 class PlotEPB():
@@ -74,7 +92,7 @@ class PlotEPB():
         x = 'utc'
         palette_ne, palette_ti, palette_pot = 'Set1', 'Set2', 'tab10'
         hue = 's_id'
-        sns.lineplot(ax = axs[0], data = self.df, x = x, y ='b_prob', 
+        sns.lineplot(ax = axs[0], data = self.df, x = x, y ='b_ind', 
                 palette = 'bone_r', hue = hue, legend =False)
         sns.lineplot(ax = axs[1], data = self.df, x = x, y ='Ne', 
                 palette = palette_ne, hue = hue, legend = False)
@@ -95,7 +113,16 @@ class PlotEPB():
         date_e = self.df['date'].iloc[-1]
         utc_s = self.df['utc'].iloc[0]
         utc_e = self.df['utc'].iloc[-1]
+      
+        lat_s = self.df['lat'].iloc[0]
+        lat_e = self.df['lat'].iloc[-1]
 
+        epb_len = (lat_s - lat_e) * 110
+        epb_len = "{:.0f}".format(epb_len)
+        
+        
+        
+        #print(epb_len)
         #axs[0].set_title(f'Equatorial Plasma Bubble: from {date_s} at {utc_s} to {date_e} at {utc_e}', fontsize = 11)
 
         epb_check = self.df['epb'].sum()
@@ -104,7 +131,10 @@ class PlotEPB():
         else:
             title = 'Quiet Period'
 
-        axs[0].set_title(f'{title}: from {date_s} at {utc_s} to {date_e} at {utc_e}', fontsize = 11)
+        
+
+        axs[0].set_title(f'{title}: from {date_s} at {utc_s}' 
+                f'to {date_e} at {utc_e} \n size: ~{epb_len} km', fontsize = 11)
         axs[0].set_ylabel('EPB Prob')
         axs[0].set_ylim(0, 1)
         axs[0].tick_params(bottom = False)
@@ -112,7 +142,6 @@ class PlotEPB():
 
         #left, bottom, width, height = (1, 0, 14, 7)
         #axs[4].add_patch(Rectangle((left, bottom),width, height, alpha=1, facecolor='none'))
-
 
         axs[1].set_yscale('log')
         den = r'cm$^{-3}$'
@@ -180,9 +209,9 @@ class PlotEPB():
         plt.show()
 
 
-p = PlotEPB(cleaned_df)
+#p = PlotEPB(cleaned_df)
 #panels = p.plotPanels()
-counts = p.plotEPBCount()
+#counts = p.plotEPBCount()
 
 #select_date = '2016-04-01'
 #w = wrangler.frompath(hdf_path, select_date)
