@@ -3,6 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
 import pandas as pd
+pd.set_option('display.max_rows', None) #or 10 or None
 import seaborn as sns
 from datetime import date
 
@@ -22,59 +23,110 @@ class WrangleData():
         file_name = 'joined-data-'+ today +'.h5'
         return cls(hdf_path+file_name, select_date)
 
-    def classifyEPB(self, ne_std, b_ind, ti_std, pot_std):
+    def classify_EPB(self, ne_std, b_ind, ti_std, pot_std):
         #if ne_std > 0.095 or b_ind == 1:
-        if ne_std > 0.095 or ti_std > 0.01 and pot_std > 0.01:
+        if ne_std > 0.01 and ti_std > 0.01 and pot_std > 0.01:
             return 1
         else:
             return 0
 
-    def transformEPB(self, sat):
-
+    def transform_EPB(self, sat, s_time, e_time):
+        #Filter the data
         self.df = self.df[self.df['b_ind']!= -1] #remove non-useful data
-        #self.df = self.df[self.df['long'].between(10,180)] #remove the SSA
+        self.df = self.df[self.df['long'].between(10,180)] #remove the SSA
         self.df = self.df[~self.df['mlt'].between(6,18)] #Nightime only
-
         self.df = self.df[self.df['s_id'] == sat]
-        self.df = self.df[self.df['utc'].between('02:58:40', '03:04:40')]
+        self.df = self.df[self.df['utc'].between(s_time, e_time)]
         self.df = self.df[self.df['lat'].between(-30,30)] #EPB region 
-
-        self.df['epb'] = self.df.apply(lambda x: self.classifyEPB(x.Ne_std, 
+        
+        #New EPB classification
+        self.df['epb'] = self.df.apply(lambda x: self.classify_EPB(x.Ne_std, 
                 x.b_ind, x.Ti_std, x.pot_std), axis=1)
         #self.df = self.df[self.df['epb'] == 1]
-
-        self.df['change'] = self.df['epb'] - self.df['epb'].shift(1)
+        
+        #Calculate EPB start, middle and end
+        epb_cat = 'epb'
+        self.df['change'] = self.df[epb_cat] - self.df[epb_cat].shift(1)
         self.df = self.df.replace({'change':{-1:2}})
-        self.df['temp'] = np.where((self.df['epb'] == 1) 
+        self.df['temp'] = np.where((self.df[epb_cat] == 1) 
                 & (self.df['change'] == 0), 1.5, 0)
 
+        #Reassign s, m & e to one column
         #https://stackoverflow.com/questions/39109045/
         #numpy-where-with-multiple-conditions
         conditions = [self.df['change'] == 1, self.df['temp'] == 1.5, 
                  self.df['change'] ==2]
         output = [1,1.5,2]
         self.df['cat'] = np.select(conditions, output, default = '0')
-        self.df = self.df[self.df['cat'].between('1','2')]
+
+        # if epb_only == True:
+        #     self.df = self.df[self.df['cat'].between('1','2')]
+        # else:
+        #     pass
+
+        self.df = self.df.reset_index().drop(columns=['change',
+                'temp','index'], axis=1)
         
-        self.df = self.df.drop(columns=['change','temp'], axis=1)
-       
-        # check_epb = self.df[self.df['change']!= 0] 
-        # check_epb = check_epb.dropna()
 
-        print(self.df)
-        # print(check_epb)
+        #Determine range
+        def pre_post_EPB(df):
+
+            # pre_epb = df[df['cat'] == '1'].index
+            # pre_filter = (pre_epb-1).union(pre_epb-2).union(pre_epb-3).union(pre_epb-4).union(pre_epb-5).union(pre_epb-6).union(pre_epb-7).union(pre_epb-8).union(pre_epb-9).union(pre_epb-10).union(pre_epb-11)
+            # post_epb = df[df['cat'] == '2'].index
+            # post_filter = (post_epb+1).union(post_epb+2).union(post_epb+3).union(post_epb+4).union(post_epb+5).union(post_epb+6).union(post_epb+7).union(post_epb+8).union(post_epb+9).union(post_epb+10).union(post_epb+11)
+            # df_pre = df.iloc[pre_filter]
+            # df_post= df.iloc[post_filter]
+
+            #cols = df.columns
+            cols = df.loc[:, df.columns != 'b_ind']
+            cols = df.loc[:, df.columns != 'b_prob']
+            cols = df.loc[:, df.columns != 'epb']
+            #print(cols)
+            #cols = cols.columns
+            cols = ['cat']
+            df_pre = df.loc['1':,cols].head(25)
+
+            print('df_pre\n', df_pre)
+
+            df_post = df.loc[:'2',cols].tail(25)
+            
+            print('df_post\n', df_post)
+
+            df = df[df['cat'].between('1','2')]
+
+            print(df)
+
+            df = pd.concat([df_pre, df, df_post], axis =0)
+
+            df = df.sort_values(by=['utc'], ascending=True)
+
+            print(df)
+
+            #load_hdf = load_hdf.sort_values(by=['utc'], ascending = True)
+
+            return df
+
+        self.df = pre_post_EPB(self.df)
+
+        self.df = self.df.drop_duplicates().dropna()
+        self.df = self.df.reset_index().drop(columns=['index'], axis=1)
+
+        #print(self.df)
         return self.df
-
-        #self.countEPB()
     
 
-
-select_date = '2016-04-02'
-#select_date = None
+select_date = None
+select_date = '2016-04-07'
 w = WrangleData.frompath(hdf_path, select_date)
 
-sat = 'C'
-cleaned_df = w.transformEPB(sat)
+sat = 'A'
+start_time = '02:58:40'
+end_time = '03:04:40'
+epb_only = False
+start_time = '00:00:00'
+end_time = '23:59:59'
+cleaned_df = w.transform_EPB(sat, start_time, end_time)
 #print(cleaned_df)
 
 
