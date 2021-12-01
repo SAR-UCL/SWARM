@@ -3,13 +3,13 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
 import pandas as pd
-pd.set_option('display.max_rows', None) #or 10 or None
+pd.set_option('display.max_rows', 10) #or 10 or None
 import seaborn as sns
 from datetime import date
 
 
 #Load exported .hdf files
-hdf_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Nov-21/data/April-16/'
+hdf_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Dec-21/data/April-16/'
 
 class WrangleData():
     
@@ -38,11 +38,18 @@ class WrangleData():
         self.df = self.df[self.df['s_id'] == sat]
         self.df = self.df[self.df['utc'].between(s_time, e_time)]
         self.df = self.df[self.df['lat'].between(-30,30)] #EPB region 
+
+        #Call classifier function
+        self.new_classifier()
+     
+    def new_classifier(self):
+
         
         #New EPB classification
         self.df['epb'] = self.df.apply(lambda x: self.classify_EPB(x.Ne_std, 
                 x.b_ind, x.Ti_std, x.pot_std), axis=1)
         #self.df = self.df[self.df['epb'] == 1]
+        
         
         #Calculate EPB start, middle and end
         epb_cat = 'epb'
@@ -71,12 +78,6 @@ class WrangleData():
         #Determine range
         def pre_post_EPB(df):
 
-            # pre_epb = df[df['cat'] == '1'].index
-            # pre_filter = (pre_epb-1).union(pre_epb-2).union(pre_epb-3).union(pre_epb-4).union(pre_epb-5).union(pre_epb-6).union(pre_epb-7).union(pre_epb-8).union(pre_epb-9).union(pre_epb-10).union(pre_epb-11)
-            # post_epb = df[df['cat'] == '2'].index
-            # post_filter = (post_epb+1).union(post_epb+2).union(post_epb+3).union(post_epb+4).union(post_epb+5).union(post_epb+6).union(post_epb+7).union(post_epb+8).union(post_epb+9).union(post_epb+10).union(post_epb+11)
-            # df_pre = df.iloc[pre_filter]
-            # df_post= df.iloc[post_filter]
 
             #cols = df.columns
             cols = df.loc[:, df.columns != 'b_ind']
@@ -107,12 +108,12 @@ class WrangleData():
 
             return df
 
-        self.df = pre_post_EPB(self.df)
+        #self.df = pre_post_EPB(self.df)
 
         self.df = self.df.drop_duplicates().dropna()
         self.df = self.df.reset_index().drop(columns=['index'], axis=1)
 
-        #print(self.df)
+        print(self.df)
         return self.df
     
 
@@ -121,11 +122,11 @@ select_date = '2016-04-07'
 w = WrangleData.frompath(hdf_path, select_date)
 
 sat = 'A'
-start_time = '02:58:40'
-end_time = '03:04:40'
+start_time = '09:05:32'
+end_time = '09:20:32'
 epb_only = False
-start_time = '00:00:00'
-end_time = '23:59:59'
+#start_time = '00:00:00'
+#end_time = '23:59:59'
 cleaned_df = w.transform_EPB(sat, start_time, end_time)
 #print(cleaned_df)
 
@@ -141,7 +142,7 @@ class PlotEPB():
             dpi=90, sharex=True) #3.5 for single, #5.5 for double
         axs = axs.flatten()
 
-        x = 'utc'
+        x = 'lat'
         palette_ne, palette_ti, palette_pot = 'Set1', 'Set2', 'tab10'
         hue = 's_id'
         sns.lineplot(ax = axs[0], data = self.df, x = x, y ='b_ind', 
@@ -261,8 +262,8 @@ class PlotEPB():
         plt.show()
 
 
-#p = PlotEPB(cleaned_df)
-#panels = p.plotPanels()
+p = PlotEPB(cleaned_df)
+panels = p.plotPanels()
 #counts = p.plotEPBCount()
 
 #select_date = '2016-04-01'
