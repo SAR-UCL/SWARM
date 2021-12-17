@@ -3,10 +3,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
 import pandas as pd
-pd.set_option('display.max_rows', 10) #or 10 or None
+pd.set_option('display.max_rows', None) #or 10 or None
 import seaborn as sns
 from datetime import date
-
 
 #Load exported .hdf files
 hdf_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Dec-21/data/April-16/'
@@ -24,14 +23,14 @@ class WrangleData():
         return cls(hdf_path+file_name, select_date)
 
 
-    def transform_EPB(self, sat, s_time, e_time):
+    def transform_EPB(self, sat, s_time, e_time, s_lat, e_lat):
         #Filter the data
         self.df = self.df[self.df['b_ind']!= -1] #remove non-useful data
         self.df = self.df[self.df['long'].between(10,180)] #remove the SSA
         self.df = self.df[~self.df['mlt'].between(6,18)] #Nightime only
         self.df = self.df[self.df['s_id'] == sat]
         self.df = self.df[self.df['utc'].between(s_time, e_time)]
-        self.df = self.df[self.df['lat'].between(-20,20)] #EPB region 
+        self.df = self.df[self.df['lat'].between(s_lat,e_lat)] #EPB region 
 
         def new_classifier(df):
 
@@ -123,11 +122,11 @@ select_date = '2016-04-01'
 w = WrangleData.frompath(hdf_path, select_date)
 
 sat = 'C'
-start_time, end_time = '20:35:32', '20:47:32'
-epb_only = False
+start_time, end_time = '20:35:32', '20:50:32'
+start_lat, end_lat = -22, 30
+#epb_only = False
 #start_time, end_time = '00:00:00','23:59:59'
-cleaned_df = w.transform_EPB(sat, start_time, end_time)
-
+cleaned_df = w.transform_EPB(sat, start_time, end_time, start_lat, end_lat)
 #print('Outside Class\n', cleaned_df)
 
 
@@ -137,7 +136,7 @@ class PlotEPB():
         self.df = df
         print(df)
 
-    def plotPanels(self):
+    def plotStdDev(self):
 
         figs, axs = plt.subplots(ncols=1, nrows=8, figsize=(10,7), 
             dpi=90, sharex=True) #3.5 for single, #5.5 for double
@@ -245,6 +244,113 @@ class PlotEPB():
         plt.tight_layout()
         plt.show()
 
+    def plotRaw(self):
+
+        figs, axs = plt.subplots(ncols=1, nrows=4, figsize=(10,7), 
+            dpi=90, sharex=True) #3.5 for single, #5.5 for double
+        axs = axs.flatten()
+
+        x = 'lat'
+        palette_ne, palette_ti, palette_pot = 'Set1', 'Set2', 'tab10'
+        hue = 's_id'
+        #sns.lineplot(ax = axs[0], data = self.df, x = x, y ='b_ind', 
+        #        palette = 'bone_r', hue = hue, legend =False)
+        sns.lineplot(ax = axs[0], data = self.df, x = x, y ='Ne', 
+                palette = palette_ne, hue = hue, legend = False)
+        sns.lineplot(ax = axs[1], data = self.df, x = x, y ='Ti', 
+                palette = palette_ti, hue = hue, legend = False)
+        sns.lineplot(ax = axs[2], data = self.df, x = x, y ='pot', 
+                palette = palette_pot, hue = hue, legend = False)
+
+        ax2 = axs[3].twinx()
+        sns.lineplot(ax = axs[3], data = self.df, x = x, y ='mlt', 
+                palette = 'bone_r', hue = hue,legend = False)
+        sns.lineplot(ax = ax2, data = self.df, x = x, y ='utc', 
+                palette = 'bone_r', hue = hue,legend = False)
+
+        date_s = self.df['date'].iloc[0]
+        date_e = self.df['date'].iloc[-1]
+        utc_s = self.df['utc'].iloc[0]
+        utc_e = self.df['utc'].iloc[-1]
+      
+        lat_s = self.df['lat'].iloc[0]
+        lat_e = self.df['lat'].iloc[-1]
+
+        epb_len = (lat_s - lat_e) * 110
+        epb_len = "{:.0f}".format(epb_len)
+        
+        
+        
+        #print(epb_len)
+        #axs[0].set_title(f'Equatorial Plasma Bubble: from {date_s} at {utc_s} to {date_e} at {utc_e}', fontsize = 11)
+
+        epb_check = self.df['epb'].sum()
+        if epb_check > 0:
+            title = 'Equatorial Plasma Bubble'
+        else:
+            title = 'Quiet Period'
+
+        
+
+        axs[0].set_title(f'{title}: from {date_s} at {utc_s} ' 
+                f'to {date_e} at {utc_e} \n size: ~{epb_len} km', fontsize = 11)
+        #axs[0].set_ylabel('EPB Prob')
+        #axs[0].set_ylim(0, 1)
+        #axs[0].tick_params(bottom = False)
+        #axs[0].axhline( y=0.9, ls='-.', c='k')
+
+        #left, bottom, width, height = (1, 0, 14, 7)
+        #axs[4].add_patch(Rectangle((left, bottom),width, height, alpha=1, facecolor='none'))
+
+        axs[0].set_yscale('log')
+        den = r'cm$^{-3}$'
+        axs[0].set_ylabel(f'Ne ({den})')
+        axs[0].tick_params(bottom = False)
+        #axs[1].axhline( y=60000, ls='-.', c='k')
+
+        #axs[2].set_yscale('log')
+        #axs[2].set_ylabel('Ti (K)')
+        #axs[2].set_ylabel('Ne \n stddev')
+        #axs[2].axhline( y=950, ls='-.', c='k')
+        #axs[2].set_ylim(0,1)
+        #axs[2].tick_params(bottom = False)
+
+        axs[1].set_ylabel('Ti (K)')
+        axs[1].tick_params(bottom = False)
+
+        #axs[4].set_ylabel('Ti \n stddev')
+        #axs[4].set_ylim(0,1)
+        #axs[4].tick_params(bottom = False)
+        #axs[4].set_xlabel(' ')
+        #axs[4].legend(loc="center left", title="Sat")
+
+        axs[2].set_ylabel('Pot (V)')
+        axs[2].tick_params(bottom = False)
+
+        #axs[6].set_ylabel('Pot \n stddev')
+        #axs[6].set_ylim(0,0.5)
+        #axs[6].tick_params(bottom = False)
+
+
+        axs[3].set_ylabel('MLT')
+        ax2.set_ylabel('utc')
+        #axs[7].invert_xaxis()
+
+        #n = len(self.df) // 8
+        #n = 50  # Keeps every 7th label
+        #[l.set_visible(False) for (i,l) in 
+        #        enumerate(axs[7].xaxis.get_ticklabels()) if i % n != 0]
+        #axs[4].tick_params(axis='x',labelrotation=90)
+        #ax[0].set_xticks[]
+        #axs[0].set_xticks([], minor=False)
+
+        #for tic in axs[4].xaxis.get_major_ticks():
+        #    tic.tick1On = tic.tick2On = True
+
+        plt.tight_layout()
+        plt.show()
+
+
     def plotEPBCount(self):
         #self.df == self.df
         print(self.df)
@@ -263,6 +369,7 @@ class PlotEPB():
         plt.show()
 
 
-#p = PlotEPB(cleaned_df)
-#panels = p.plotPanels()
+p = PlotEPB(cleaned_df)
+#panels = p.plotStdDev()
+panels = p.plotRaw()
 #counts = p.plotEPBCount()

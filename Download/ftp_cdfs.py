@@ -16,8 +16,8 @@ import patoolib
 SATE = ['A','C'] #select spacecraft
 YEAR = [2019,2020] #select years
 MONTH = [3]
-DAYS = 1 #how many days of data needed. Do not exceed 30
-START_DAY = 1 #start the loop
+DAYS = 10 #how many days of data needed. Do not exceed 30
+START_DAY = 10 #start the loop
 
 for SAT in SATE:
     for YR in YEAR:

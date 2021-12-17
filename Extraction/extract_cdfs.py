@@ -49,7 +49,7 @@ def openIBI(dire):
             lat = cdf.varget("Latitude")
             lon = cdf.varget("Longitude")
 
-            #sciencer1
+            #science
             bub_ind = cdf.varget("Bubble_Index")
             bub_prob = cdf.varget("Bubble_Probability")
 
@@ -58,11 +58,13 @@ def openIBI(dire):
             #mag_flag = cdf.varget("Flags_F")
 
             #place in dataframe
-            cdf_df = pd.DataFrame({'datetime':utc,'lat':lat, 'long':lon,'b_ind':bub_ind, 'b_prob':bub_prob,'s_id':sat_id})
+            cdf_df = pd.DataFrame({'datetime':utc,'lat':lat, 'long':lon,
+                    'b_ind':bub_ind, 'b_prob':bub_prob,
+                    's_id':sat_id})
             cdf_array.append(cdf_df)
             ibi_data = pd.concat(cdf_array)
 
-            #Filters
+            #Filters & Flags
             #ibi_data = ibi_data.loc[ibi_data['b_ind'] == 1] #1 = Bubble 
             #ibi_data = ibi_data.loc[ibi_data['bub_flag'] == 2] #1 = Confirmed, 2 = Unconfirmed
             #ibi_data = ibi_data.loc[ibi_data['b_prob'] > 0]
@@ -77,6 +79,7 @@ def openIBI(dire):
         return utc
     
     ibi_data['datetime'] = ibi_data['datetime'].apply(convert2Datetime).str[0].astype(str)
+    ibi_data = ibi_data.reset_index().drop(columns=['index'])
 
     #Export
     ibi_data.to_hdf(IBI_output, key = 'ibi_data', mode = 'w')
@@ -148,6 +151,7 @@ def openLP(dire):
         return utc
         
     lp_data['datetime'] = lp_data['datetime'].apply(convert2Datetime).str[0].astype(str)
+    lp_data = lp_data.reset_index().drop(columns=['index'])
 
     #Export 
     lp_data.to_hdf(LP_output, key = 'lp_data', mode = 'w')
@@ -178,7 +182,8 @@ def openEFI(dire):
                 Ti_flag = cdf.varget("Flag_ti_meas")
 
                 #place in dataframe
-                cdf_df = pd.DataFrame({'datetime':utc, 'mlt':mlt, "Ti":Ti, "Ti_f":Ti_flag, "s_id":sat_id})
+                cdf_df = pd.DataFrame({'datetime':utc, 'mlt':mlt, 
+                        "Ti":Ti, "Ti_f":Ti_flag, "s_id":sat_id})
                 cdf_array.append(cdf_df)
 
                 efi_data = pd.concat(cdf_array)
@@ -203,8 +208,8 @@ def openEFI(dire):
                 efi_data = calcROC(efi_data)
                 
                 efi_data = efi_data[::2] #reduce to 1hz
-                efi_data = efi_data.loc[efi_data['Ti_f'] == 1]
-                efi_data = efi_data.drop(columns=['Ti_f','Ti_c'])
+                #efi_data = efi_data.loc[efi_data['Ti_f'] == 1]
+                #efi_data = efi_data.drop(columns=['Ti_f','Ti_c'])
 
         except RuntimeError:
             raise Exception('Problems extracting EFI data')
@@ -221,10 +226,10 @@ def openEFI(dire):
         print ('EFI data exported.')
         return efi_data #concat enables multiple .cdf files to be to one df
 
-#Load open functions
+##Load open functions
 #IBI_data = openIBI(IBI_dir)
 #LP_data = openLP(LP_dir)
-#EFI_data = openEFI(EFI_dir)
+EFI_data = openEFI(EFI_dir)
 #print(IBI_data, LP_data, EFI_data)
 
 def mergeCDF(IBI, LP, EFI):
