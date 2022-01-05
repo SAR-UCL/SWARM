@@ -3,12 +3,12 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.patches import Rectangle
 import pandas as pd
-pd.set_option('display.max_rows', None) #or 10 or None
+pd.set_option('display.max_rows', 10) #or 10 or None
 import seaborn as sns
 from datetime import date
 
 #Load exported .hdf files
-hdf_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Dec-21/data/April-16/'
+hdf_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/April-16/'
 
 class WrangleData():
     
@@ -35,11 +35,10 @@ class WrangleData():
         def new_classifier(df):
 
                 def classify_EPB(ne_std, b_ind, ti_std, pot_std):
-                        if ne_std > 0.01 and ti_std > 0.01 and pot_std > 0.01:
+                        if ne_std > 0.01 and ti_std > 0.01 or pot_std > 0.01:
                                 return 1
                         else:
                                 return 0
-
 
                 #New EPB classification
                 df['epb'] = df.apply(lambda x: classify_EPB(x.Ne_std, 
@@ -109,6 +108,7 @@ class WrangleData():
 
         #self.df = pre_post_EPB(df)
 
+        #self.df['utc'] = pd.to_datetime(self.df['utc']).dt.time
         self.df = self.df.drop_duplicates().dropna()
         self.df = self.df.reset_index().drop(columns=['index'], axis=1)
 
@@ -118,11 +118,11 @@ class WrangleData():
     
 
 select_date = None
-select_date = '2016-04-01'
+select_date = '2016-04-07'
 w = WrangleData.frompath(hdf_path, select_date)
 
-sat = 'C'
-start_time, end_time = '20:35:32', '20:50:32'
+sat = 'A'
+start_time, end_time = '20:01:00', '20:10:00'
 start_lat, end_lat = -22, 30
 #epb_only = False
 #start_time, end_time = '00:00:00','23:59:59'
@@ -134,7 +134,103 @@ class PlotEPB():
 
     def __init__(self, df):
         self.df = df
-        print(df)
+        print(self.df)
+
+    def plotNoStdDev(self):
+
+        figs, axs = plt.subplots(ncols=1, nrows=6, figsize=(10,7), 
+        dpi=90, sharex=True) #3.5 for single, #5.5 for double
+        axs = axs.flatten()
+
+        x = 'lat'
+        #palette_ne, palette_ti, palette_pot = 'Set1', 'Set2', 'tab10'
+        palette_ne, palette_ti, palette_pot = 'flag', 'flag', 'flag'
+        hue = 's_id'
+        sns.lineplot(ax = axs[0], data = self.df, x = x, y ='b_ind', 
+                palette = 'Set2',hue = hue, legend=False)
+
+        sns.lineplot(ax = axs[1], data = self.df, x =x, y ='epb',
+                palette = 'Set2', hue = hue, legend=False)
+
+        sns.lineplot(ax = axs[2], data = self.df, x = x, y ='Ne', 
+                #marker = 'o', linestyle='', err_style='bars', 
+                palette = palette_ne, hue = hue, legend = False)
+
+        sns.lineplot(ax = axs[3], data = self.df, x = x, y ='Ti', 
+                palette = palette_ti, hue = hue, legend = False)
+
+        sns.lineplot(ax = axs[4], data = self.df, x = x, y ='pot', 
+                palette = palette_pot, hue = hue, legend = False)
+        
+        sns.lineplot(ax = axs[5], data = self.df, x = x, y ='utc', 
+                palette = 'Dark2', hue = hue, legend = False)
+        
+        ax6 = axs[5].twinx()
+        sns.lineplot(ax = ax6, data = self.df, x = x, y ='mlt', 
+                palette = 'tab20b', hue = hue, legend = False)
+
+        date_s = self.df['date'].iloc[0]
+        date_e = self.df['date'].iloc[-1]
+        utc_s = self.df['utc'].iloc[0]
+        utc_e = self.df['utc'].iloc[-1]
+      
+        lat_s = self.df['lat'].iloc[0]
+        lat_e = self.df['lat'].iloc[-1]
+
+        epb_len = (lat_s - lat_e) * 110
+        epb_len = "{:.0f}".format(epb_len)
+        
+        #print(epb_len)
+        #axs[0].set_title(f'Equatorial Plasma Bubble: from {date_s} at {utc_s} to {date_e} at {utc_e}', fontsize = 11)
+
+        epb_check = self.df['epb'].sum()
+        if epb_check > 0:
+            title = 'Equatorial Plasma Bubble'
+        else:
+            title = 'Quiet Period'
+
+
+        axs[0].set_title(f'{title}: from {date_s} at {utc_s} ' 
+                f'to {date_e} at {utc_e}', fontsize = 11)
+        axs[0].set_ylabel('EPB \n (SWARM)')
+        #axs[0].set_ylim(0, 1)
+        axs[0].tick_params(bottom = False)
+        #axs[0].axhline( y=0.9, ls='-.', c='k')
+
+        axs[1].set_ylabel('EPB  \n (MSSL)')
+        axs[1].tick_params(bottom = False)
+
+        #left, bottom, width, height = (1, 0, 14, 7)
+        #axs[4].add_patch(Rectangle((left, bottom),width, height, alpha=1, facecolor='none'))
+
+        axs[2].set_yscale('log')
+        den = r'cm$^{-3}$'
+        axs[2].set_ylabel(f'Ne ({den})')
+        axs[2].tick_params(bottom = False)
+
+
+        axs[3].set_ylabel('Ti (K)')
+        axs[3].tick_params(bottom = False)
+
+        axs[4].set_ylabel('Pot (V)')
+        axs[4].tick_params(bottom = False)
+        #axs[4].set_xlabel(' ')
+
+
+        axs[5].set_xlabel('Latitude')
+        axs[5].set_ylabel('UTC')
+        axs[5].tick_params(left = False)
+        ax6.set_ylabel('MLT')
+        n = len(self.df) // 3.5
+        [l.set_visible(False) for (i,l) in 
+                enumerate(axs[5].yaxis.get_ticklabels()) if i % n != 0]
+
+
+        ax = plt.gca()
+        ax.invert_xaxis()
+
+        plt.tight_layout()
+        plt.show()
 
     def plotStdDev(self):
 
@@ -142,7 +238,7 @@ class PlotEPB():
             dpi=90, sharex=True) #3.5 for single, #5.5 for double
         axs = axs.flatten()
 
-        x = 'lat'
+        x = 'utc'
         palette_ne, palette_ti, palette_pot = 'Set1', 'Set2', 'tab10'
         hue = 's_id'
         sns.lineplot(ax = axs[0], data = self.df, x = x, y ='b_ind', 
@@ -230,10 +326,10 @@ class PlotEPB():
         axs[7].set_ylabel('IPB Prob \n proposed')
         #axs[7].invert_xaxis()
 
-        #n = len(self.df) // 8
+        n = len(self.df) // 8
         #n = 50  # Keeps every 7th label
-        #[l.set_visible(False) for (i,l) in 
-        #        enumerate(axs[7].xaxis.get_ticklabels()) if i % n != 0]
+        [l.set_visible(False) for (i,l) in 
+                enumerate(axs[7].xaxis.get_ticklabels()) if i % n != 0]
         #axs[4].tick_params(axis='x',labelrotation=90)
         #ax[0].set_xticks[]
         #axs[0].set_xticks([], minor=False)
@@ -351,6 +447,7 @@ class PlotEPB():
         plt.show()
 
 
+
     def plotEPBCount(self):
         #self.df == self.df
         print(self.df)
@@ -370,6 +467,7 @@ class PlotEPB():
 
 
 p = PlotEPB(cleaned_df)
+panels = p.plotNoStdDev()
 #panels = p.plotStdDev()
-panels = p.plotRaw()
+#panels = p.plotRaw()
 #counts = p.plotEPBCount()

@@ -19,7 +19,7 @@ from datetime import date
 IBI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/April-16')
 LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/April-16')
 EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/April-16')
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Dec-21/data/April-16/'
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/April-16/'
 
 #Output names
 IBI_output = path + 'IBI-data_April-16.h5'
@@ -108,13 +108,14 @@ def openLP(dire):
             
             #Flags
             #info https://earth.esa.int/eogateway/documents/20142/37627/swarm-level-1b-plasma-processor-algorithm.pdf
-            LP_flah = cdf.varget("Flags_LP")
+            LP_flag = cdf.varget("Flags_LP")
             Te_flag = cdf.varget("Flags_Te")
             ne_flag = cdf.varget("Flags_Ne")
             Vs_flag = cdf.varget("Flags_Vs")
 
-            cdf_df = pd.DataFrame({"datetime":utc, "alt":alt, "Ne":Ne, "Te":Te, "pot":Vs,
-                "pot_Te":Te_flag, "pot_Ne":ne_flag,"pot_f":Vs_flag, "s_id":sat_id})
+            cdf_df = pd.DataFrame({"datetime":utc, "alt":alt, "Ne":Ne, "Te":Te, 
+                "pot":Vs,"LP_f":LP_flag,"Te_f":Te_flag, "Ne_f":ne_flag,
+                "pot_f":Vs_flag,"s_id":sat_id})
             cdf_array.append(cdf_df)
 
             def calcROC(df):
@@ -138,10 +139,19 @@ def openLP(dire):
             lp_data = calcROC(lp_data)
 
             #Remove flags
-            lp_data = lp_data.loc[lp_data['pot_Te'] == 20]
-            lp_data = lp_data.loc[lp_data['pot_Ne'] == 20]
-            lp_data = lp_data.loc[lp_data['pot_f'] == 20]
-            lp_data = lp_data.drop(columns=['pot_Te','pot_Ne','pot_f','Ne_c','Te_c','pot_c'])
+            #https://earth.esa.int/eogateway/documents/20142/37627/swarm-level
+            #-1b-product-definition-specification.pdf/12995649-fbcb-6ae2-5302
+            # -2269fecf5a08
+            
+            lp_data = lp_data.loc[lp_data['LP_f'] != 7]
+            lp_data = lp_data.loc[((lp_data['Ne_f'] != 31) &
+                    (lp_data['Ne_f'] != 40 ))]
+            lp_data = lp_data.loc[( (lp_data['Te_f'] != 31) & 
+                    (lp_data['Te_f'] != 40) & (lp_data['Te_f'] != 41) )]
+            lp_data = lp_data.loc[((lp_data['pot_f'] != 31) &
+                    (lp_data['pot_f'] != 32) & (lp_data['pot_f'] != 41))]
+            lp_data = lp_data.drop(columns=['Ne_f','Ne_f','pot_f','Ne_c',
+                    'Te_c','pot_c'])
 
     except RuntimeError:
         raise Exception('Problems extracting LP data')
@@ -228,8 +238,9 @@ def openEFI(dire):
 
 ##Load open functions
 #IBI_data = openIBI(IBI_dir)
-#LP_data = openLP(LP_dir)
-EFI_data = openEFI(EFI_dir)
+#EFI_data = openEFI(EFI_dir)
+LP_data = openLP(LP_dir)
+#print(LP_data)
 #print(IBI_data, LP_data, EFI_data)
 
 def mergeCDF(IBI, LP, EFI):
@@ -243,7 +254,8 @@ def mergeCDF(IBI, LP, EFI):
     try:
         print ('Joining dataframes...')
         #Join the different dataframes
-        joined_cdf = read_IBI.merge(read_LP, on = ['datetime','s_id']).merge(read_EFI, on = ['datetime','s_id'])
+        joined_cdf = read_IBI.merge(read_LP, on = 
+                ['datetime','s_id']).merge(read_EFI, on = ['datetime','s_id'])
 
         #Splits datetime into date & utc, then reorders the df
         def splitDatetime(df):
@@ -255,9 +267,13 @@ def mergeCDF(IBI, LP, EFI):
             return df
         
         joined_cdf = splitDatetime(joined_cdf)
-        joined_cdf = joined_cdf.sort_values(by=['s_id','date','utc'], ascending = True)
-        joined_cdf = joined_cdf[['date','utc','mlt','lat','long','alt','s_id','b_ind','b_prob',
-                    'Ne','Ne_std','Ti','Ti_std','pot','pot_std','Te','Te_std']]
+        joined_cdf = joined_cdf.sort_values(by=['s_id','date','utc'], 
+                ascending = True)
+        joined_cdf = joined_cdf[['date','utc','mlt','lat','long','alt','s_id',
+                'b_ind','b_prob','Ne','Ne_std','Ti','Ti_std','pot','pot_std',
+                'Te','Te_std']]
+        joined_cdf = joined_cdf.reset_index().drop(columns=['index'])
+
         #print('Joined dataframe\n',joined_cdf)
     
     except RuntimeError:
