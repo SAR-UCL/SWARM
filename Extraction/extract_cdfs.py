@@ -239,7 +239,7 @@ def openEFI(dire):
 ##Load open functions
 #IBI_data = openIBI(IBI_dir)
 #EFI_data = openEFI(EFI_dir)
-LP_data = openLP(LP_dir)
+#LP_data = openLP(LP_dir)
 #print(LP_data)
 #print(IBI_data, LP_data, EFI_data)
 

@@ -7,9 +7,10 @@ from matplotlib import pyplot as plt
 import pandas as pd
 import seaborn as sns
 from matplotlib.colors import LogNorm
+from datetime import date
 
 #Loading and exporting
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Nov-21/data/April-16/'
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/April-16/'
 
 #csv
 #file_name = r'may18-cleaned.csv'
@@ -17,7 +18,9 @@ path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/S
 #load_csv = pd.read_csv(load_csv)
 
 #HDF
-file_name = 'joined-data-2021-11-17-Apr.h5'
+#file_name = 'joined-data-2022-01-06.h5'
+today =  str(date.today())
+file_name = 'wrangled-EPB-'+ today +'.h5'
 load_hdf = path + file_name
 load_hdf = pd.read_hdf(load_hdf)
 #print(load_hdf)
@@ -55,8 +58,8 @@ def featureEng(df):
     '''
 
     #Calcualte Major: Minor ratio
-    dfc = df.groupby(['n_prob']).count()
-    print('counts',dfc)
+    dfc = df.groupby(['epb']).count()
+    #print('counts',dfc)
     major = dfc['date'].iloc[0]
     minor = dfc['date'].iloc[1]
     print('Major : Minor = ', major//minor,': 1')
@@ -94,7 +97,7 @@ def selectNScale(df):
     x_data = scaler.transform(x_data)
 
     #select and flatten y data
-    labels = 'b_ind'
+    labels = 'epb'
     y_data = df[[labels]]
     y_data = y_data[[labels]].to_numpy()
     y_data = np.concatenate(y_data).ravel().tolist()
@@ -137,11 +140,12 @@ def resample(X, y):
     sm = SMOTE(random_state = 42)
     X_rs, y_rs = sm.fit_resample(X,y)
 
-    #print('Orignal data shape%s' %Counter(y))
-    #print('Resampled data shape%s' %Counter(y_rs))
+    print('Orignal data shape%s' %Counter(y))
+    print('Resampled data shape%s' %Counter(y_rs))
     
     return X_rs, y_rs
 
+#X_smote_train, y_smote_train = resample(X_train, y_train)
 X_train, y_train = resample(X_train, y_train)
 
 def randomForest():
@@ -178,7 +182,7 @@ def sgd():
     return model
 
 #Model
-model_name = 'gauss_181121.pkl'
+model_name = today + '_rf_conservative.pkl'
 model_pathfile = path + model_name
 
 def saveModel():
@@ -196,6 +200,7 @@ def saveModel():
         #Split set and cross-validate. Reduces risk of over-fitting.
         scores = cross_val_score(model, X_train, y_train, cv=5)
         print("μ accuracy: %0.2f, σ: %0.2f" % (scores.mean(), scores.std()))
+        #print("xv scores: %f" % scores)
 
         #See (hyper)parameters. Useful for optimisation
         #print(model.get_params())
@@ -257,7 +262,7 @@ def pltSKL():
     #plt.rcParams['font.size'] = '9.5'  
     #figs.subplots_adjust(top=0.88)
 
-    #skplt.estimators.plot_learning_curve(model, X_train, y_train, ax=axs[0]) #very slow
+    skplt.estimators.plot_learning_curve(model, X_train, y_train, ax=axs[0]) #very slow
     skplt.estimators.plot_feature_importances(model, feature_names=features, ax=axs[1])
     skplt.metrics.plot_roc(y_test, y_probas, ax=axs[2]) #For balanced data
     #skplt.metrics.plot_precision_recall(y_test, y_probas, ax=axs[2]) #for imbalanced data

@@ -35,7 +35,7 @@ class WrangleData():
         def new_classifier(df):
 
                 def classify_EPB(ne_std, b_ind, ti_std, pot_std):
-                        if ne_std > 0.01 and ti_std > 0.01 or pot_std > 0.01:
+                        if ne_std > 0.01 and ti_std > 0.01 and pot_std > 0.01:
                                 return 1
                         else:
                                 return 0
@@ -116,18 +116,27 @@ class WrangleData():
 
         return df
     
-
 select_date = None
-select_date = '2016-04-07'
+#select_date = '2016-04-07'
 w = WrangleData.frompath(hdf_path, select_date)
 
 sat = 'A'
-start_time, end_time = '20:01:00', '20:10:00'
-start_lat, end_lat = -22, 30
+#start_time, end_time = '20:01:00', '20:10:00'
+start_lat, end_lat = -30, 30
+#start_lat, end_lat = -90, 90
 #epb_only = False
-#start_time, end_time = '00:00:00','23:59:59'
+start_time, end_time = '00:00:00','23:59:59'
 cleaned_df = w.transform_EPB(sat, start_time, end_time, start_lat, end_lat)
-#print('Outside Class\n', cleaned_df)
+
+print('Outside Class\n', cleaned_df)
+#print(cleaned_df['epb'].value_counts(sort=True))
+#print(cleaned_df['b_ind'].value_counts(sort=True))
+
+#Export
+from datetime import date
+today =  str(date.today())
+joined_output = hdf_path + 'wrangled-EPB-'+ today +'.h5'
+cleaned_df.to_hdf(joined_output, key = 'efi_data', mode = 'w')
 
 
 class PlotEPB():
@@ -147,10 +156,10 @@ class PlotEPB():
         palette_ne, palette_ti, palette_pot = 'flag', 'flag', 'flag'
         hue = 's_id'
         sns.lineplot(ax = axs[0], data = self.df, x = x, y ='b_ind', 
-                palette = 'Set2',hue = hue, legend=False)
+                palette = 'bone',hue = hue, legend=False)
 
         sns.lineplot(ax = axs[1], data = self.df, x =x, y ='epb',
-                palette = 'Set2', hue = hue, legend=False)
+                palette = 'bone', hue = hue, legend=False)
 
         sns.lineplot(ax = axs[2], data = self.df, x = x, y ='Ne', 
                 #marker = 'o', linestyle='', err_style='bars', 
@@ -191,7 +200,7 @@ class PlotEPB():
 
 
         axs[0].set_title(f'{title}: from {date_s} at {utc_s} ' 
-                f'to {date_e} at {utc_e}', fontsize = 11)
+                f'to {date_e} at {utc_e}. Spacecraft: {sat}', fontsize = 11)
         axs[0].set_ylabel('EPB \n (SWARM)')
         #axs[0].set_ylim(0, 1)
         axs[0].tick_params(bottom = False)
@@ -466,8 +475,8 @@ class PlotEPB():
         plt.show()
 
 
-p = PlotEPB(cleaned_df)
-panels = p.plotNoStdDev()
+#p = PlotEPB(cleaned_df)
+#panels = p.plotNoStdDev()
 #panels = p.plotStdDev()
 #panels = p.plotRaw()
 #counts = p.plotEPBCount()
