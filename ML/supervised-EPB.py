@@ -89,7 +89,7 @@ def selectNScale(df):
     global features
 
     #Select and scale the x data
-    features = ['Ne','Ti','pot']
+    features = ['long','Ne','Ti','pot']
     #features = ['Ne','Ti','Te','F','vfm_x','vfm_y','vfm_z']
     x_data = df[features]
     scaler = StandardScaler()
@@ -140,8 +140,8 @@ def resample(X, y):
     sm = SMOTE(random_state = 42)
     X_rs, y_rs = sm.fit_resample(X,y)
 
-    print('Orignal data shape%s' %Counter(y))
-    print('Resampled data shape%s' %Counter(y_rs))
+    #print('Orignal data shape%s' %Counter(y))
+    #print('Resampled data shape%s' %Counter(y_rs))
     
     return X_rs, y_rs
 
@@ -150,8 +150,13 @@ X_train, y_train = resample(X_train, y_train)
 
 def randomForest():
     from sklearn.ensemble import RandomForestClassifier
+    from sklearn.ensemble import GradientBoostingClassifier
 
-    model = RandomForestClassifier(n_estimators=75, min_samples_leaf=1, bootstrap=True, random_state=42)
+    model = RandomForestClassifier(n_estimators=175, min_samples_leaf=1, 
+            bootstrap=True, random_state=42)
+    #model = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, 
+    #        max_depth=3, random_state=42)
+
     model = model.fit(X_train, y_train)
 
     model.n_features_
@@ -217,7 +222,7 @@ def saveModel():
     #y_pred = model.predict(X_test) 
     #print("Accuracy:",metrics.accuracy_score(y_test, y_pred))
 
-saveModel()
+#saveModel()
 
 def pltSKL():
 
@@ -233,12 +238,15 @@ def pltSKL():
     y_pred = model.predict(X_test) #based on the model, predict EPB or not EPB 
     y_probas = model.predict_proba(X_test) #based on the model, predict probability of classes: EPB 0.8%, not EPB 0.65% etc
 
-    #print("Accuracy:",metrics.accuracy_score(y_test, y_pred))
     accuracy = metrics.accuracy_score(y_test, y_pred)
-    accuracy = float("{:.2f}".format(accuracy)) * 100
+    precision = metrics.recall_score(y_test, y_pred)
+    recall = metrics.precision_score(y_test, y_pred)
+    f1 = 2 * (precision * recall) / (precision + recall)
 
-    #print("Recall:",metrics.recall_score(y_test, y_pred))
-    #print("Precision:",metrics.precision_score(y_test, y_pred))
+    print("Accuracy:", accuracy )
+    print("Precision:", precision)
+    print("Recall:", recall)
+    print ('F1:', f1)
 
     #print out the specific values and the prediction and predition %
     #Good for testing
@@ -262,14 +270,12 @@ def pltSKL():
     #plt.rcParams['font.size'] = '9.5'  
     #figs.subplots_adjust(top=0.88)
 
-    skplt.estimators.plot_learning_curve(model, X_train, y_train, ax=axs[0]) #very slow
+    #skplt.estimators.plot_learning_curve(model, X_train, y_train, ax=axs[0]) #very slow
     skplt.estimators.plot_feature_importances(model, feature_names=features, ax=axs[1])
     skplt.metrics.plot_roc(y_test, y_probas, ax=axs[2]) #For balanced data
     #skplt.metrics.plot_precision_recall(y_test, y_probas, ax=axs[2]) #for imbalanced data
     skplt.metrics.plot_confusion_matrix(y_test, y_pred, ax = axs[3])
 
-
-    
 
     #axs[0].legend(prop={'size': 9.5})
     #axs[1].legend(prop={'size': 9.5})

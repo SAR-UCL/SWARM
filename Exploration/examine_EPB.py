@@ -121,6 +121,7 @@ select_date = None
 w = WrangleData.frompath(hdf_path, select_date)
 
 sat = 'A'
+#sat = None
 #start_time, end_time = '20:01:00', '20:10:00'
 start_lat, end_lat = -30, 30
 #start_lat, end_lat = -90, 90
