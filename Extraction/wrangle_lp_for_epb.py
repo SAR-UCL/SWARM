@@ -118,40 +118,13 @@ class extractCDF():
 
 dire = LP_dir
 
-def get_vars(cdf,f):
-    #cdf_array=[]
-    #cdf_files = dire.glob('**/*.cdf')
+class extraction():
 
-    #for f in cdf_files:
-    #cdf = cdflib.CDF(f)
-
-    #cdf_files = dire.glob('**/*.cdf')
-    #cdf = cdflib.CDF(cdf_files)
-
-    sat_id = str(f)
-    sat_id = sat_id[-72:-71]
-    #sat_id = ['B']
-    #sat_id = 'B'
-
-    utc = cdf.varget("Timestamp")
-    alt = cdf.varget("Radius")
-
-    Te = cdf.varget("Te")
-    Ne = cdf.varget("Ne")
-    Vs = cdf.varget("Vs")
+    def convert2Datetime(self,utc):
+        utc = cdflib.epochs.CDFepoch.to_datetime(utc)
+        return utc
     
-    #Flags
-    #info https://earth.esa.int/eogateway/documents/20142/37627/swarm-level-1b-plasma-processor-algorithm.pdf
-    LP_flag = cdf.varget("Flags_LP")
-    Te_flag = cdf.varget("Flags_Te")
-    ne_flag = cdf.varget("Flags_Ne")
-    Vs_flag = cdf.varget("Flags_Vs")
-
-    cdf_df = pd.DataFrame({"datetime":utc, "alt":alt, "Ne":Ne, "Te":Te, 
-        "pot":Vs,"LP_f":LP_flag,"Te_f":Te_flag, "Ne_f":ne_flag,
-        "pot_f":Vs_flag,"s_id":sat_id})
-
-    def pass_count(df):
+    def pass_count(self,df):
         ml = []
         start = 0
         for i in range(len(df.index)):
@@ -161,29 +134,91 @@ def get_vars(cdf,f):
                         pass
                 ml.append(start)
         return ml
-    
-    counter = pass_count(cdf_df)
-    cdf_df['p_num'] = counter
 
-    return cdf_df
+    def IBI_data(self, cdf, f):
+        #Get sat ID
+        sat_id = str(f)
+        sat_id = sat_id[-61:-60]
 
-    #cdf_df
-    #cdf_array.append(cdf_df)
-    #lp_data = pd.concat(cdf_array)
+        #header
+        utc = cdf.varget("Timestamp")
+        lat = cdf.varget("Latitude")
+        lon = cdf.varget("Longitude")
 
-    
+        #science
+        bub_ind = cdf.varget("Bubble_Index")
+        bub_prob = cdf.varget("Bubble_Probability")
 
-    #print(cdf_df)
+        #flags
+        #bub_flag = cdf.varget("Flags_Bubble")
+        #mag_flag = cdf.varget("Flags_F")
 
-cdf_array = []
-cdf_files = dire.glob('**/*.cdf')
-for f in cdf_files:
-    cdf = cdflib.CDF(f)
-    #LP_data = get_vars(cdf)
-    cdf_array.append(get_vars(cdf,f))
-    lp_data = pd.concat(cdf_array)
+        #place in dataframe
+        cdf_df = pd.DataFrame({'datetime':utc,'lat':lat, 'long':lon,
+                'b_ind':bub_ind, 'b_prob':bub_prob,
+                's_id':sat_id})
 
-print(lp_data)
+        #class functions
+        counter = self.pass_count(cdf_df)
+        cdf_df['p_num'] = counter
+        cdf_df['datetime'] = cdf_df['datetime'].apply(self.convert2Datetime).str[0].astype(str)
+
+        return cdf_df
+
+    def LP_data(self,cdf,f):
+
+        sat_id = str(f)
+        sat_id = sat_id[-72:-71]
+
+        utc = cdf.varget("Timestamp")
+        alt = cdf.varget("Radius")
+
+        Te = cdf.varget("Te")
+        Ne = cdf.varget("Ne")
+        Vs = cdf.varget("Vs")
+        
+        #Flags
+        #info https://earth.esa.int/eogateway/documents/20142/37627/swarm-level-1b-plasma-processor-algorithm.pdf
+        LP_flag = cdf.varget("Flags_LP")
+        Te_flag = cdf.varget("Flags_Te")
+        ne_flag = cdf.varget("Flags_Ne")
+        Vs_flag = cdf.varget("Flags_Vs")
+
+        cdf_df = pd.DataFrame({"datetime":utc, "alt":alt, "Ne":Ne, "Te":Te, 
+            "pot":Vs,"LP_f":LP_flag,"Te_f":Te_flag, "Ne_f":ne_flag,
+            "pot_f":Vs_flag,"s_id":sat_id})
+
+        #class functions
+        #counter = self.pass_count(cdf_df)
+        #cdf_df['p_num'] = counter
+        cdf_df['datetime'] = cdf_df['datetime'].apply(self.convert2Datetime).str[0].astype(str)
+
+        return cdf_df
+
+    def get_data(self,dire_1,instrument):
+
+        cdf_array = []
+        cdf_files = dire_1.glob('**/*.cdf')
+        for f in cdf_files:
+            cdf = cdflib.CDF(f)
+            #LP_data = get_vars(cdf)
+            #cdf_array.append(self.IBI_data(cdf,f))
+            cdf_array.append(instrument(cdf,f))
+            cdf_data = pd.concat(cdf_array)
+
+        return cdf_data
+
+extract = extraction()
+#lp_data = extract.get_data(LP_dir)
+ibi_data = extract.get_data(IBI_dir, extract.IBI_data)
+#lp_data = extract.get_data(LP_dir, extract.LP_data)
+
+print(ibi_data)
+#print(lp_data)
+
+#merged_instruments = ibi_data.merge(lp_data, on = ['datetime','s_id'])
+#print(merged_instruments)
+
 
 def openLP(dire):
 
