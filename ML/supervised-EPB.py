@@ -10,7 +10,8 @@ from matplotlib.colors import LogNorm
 from datetime import date
 
 #Loading and exporting
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/April-16/'
+#path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/April-16/'
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/decadal/'
 
 #csv
 #file_name = r'may18-cleaned.csv'
@@ -152,8 +153,8 @@ def randomForest():
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.ensemble import GradientBoostingClassifier
 
-    model = RandomForestClassifier(n_estimators=175, min_samples_leaf=1, 
-            bootstrap=True, random_state=42)
+    model = RandomForestClassifier(n_estimators=175, random_state=42,
+    min_samples_leaf=2)
     #model = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, 
     #        max_depth=3, random_state=42)
 
@@ -239,8 +240,8 @@ def pltSKL():
     y_probas = model.predict_proba(X_test) #based on the model, predict probability of classes: EPB 0.8%, not EPB 0.65% etc
 
     accuracy = metrics.accuracy_score(y_test, y_pred)
-    precision = metrics.recall_score(y_test, y_pred)
-    recall = metrics.precision_score(y_test, y_pred)
+    recall = metrics.recall_score(y_test, y_pred)
+    precision = metrics.precision_score(y_test, y_pred)
     f1 = 2 * (precision * recall) / (precision + recall)
 
     print("Accuracy:", accuracy )
@@ -285,5 +286,5 @@ def pltSKL():
     plt.tight_layout()
     plt.show()
 
-pltSKL()
+#pltSKL()
 

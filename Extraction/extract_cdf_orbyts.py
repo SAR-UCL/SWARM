@@ -14,22 +14,20 @@ import glob
 from pathlib import Path
 import os
 from datetime import date
+import numpy as np
 
-dir_suffix = 'test'
-
-IBI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/'+dir_suffix)
-LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/'+dir_suffix)
-EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/'+dir_suffix)
-#path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/test/'
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/test/'
+IBI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/orbyts')
+LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/orbyts')
+EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/orbyts')
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/orbyts/'
 
 #Output names
-IBI_output = path + 'IBI-data_'+dir_suffix+'.h5'
-LP_output = path + 'LP-data_'+dir_suffix+'.h5'
-EFI_output = path + 'EFI-data_'+dir_suffix+'.h5'
+IBI_output = path + 'IBI-data_decadal.h5'
+LP_output = path + 'LP-data_decadal.h5'
+EFI_output = path + 'EFI-data_decadal.h5'
 
 today =  str(date.today())
-joined_output = path + 'decadal-data-'+ today +'.csv'
+joined_output = path + 'orbyts-multi-year-2-'+ today +'.csv'
 
 
 def openIBI(dire):
@@ -120,9 +118,6 @@ def openLP(dire):
                 "pot_f":Vs_flag,"s_id":sat_id})
             cdf_array.append(cdf_df)
 
-            lp_data = pd.concat(cdf_array)
-
-
             def calcROC(df):
             
                 #Rate of change cm/s or k/s or pot/s
@@ -140,41 +135,23 @@ def openLP(dire):
 
                 return df
 
+            lp_data = pd.concat(cdf_array)
             lp_data = calcROC(lp_data)
 
-            def pass_count(df):
-                ml = []
-                start = 0
-                for i in range(len(df.index)):
-                        if i % 2700 == 0:
-                                start +=1
-                        else:
-                                pass
-                        ml.append(start)
-                return ml
-            counter = pass_count(lp_data)
-            lp_data['p_num'] = counter
-
-            def flags_drop_cols(df):
-                #Remove flags
-                #https://earth.esa.int/eogateway/documents/20142/37627/swarm-level
-                #-1b-product-definition-specification.pdf/12995649-fbcb-6ae2-5302
-                # -2269fecf5a08
-                    
-                df = df.loc[df['LP_f'] != 7]
-                df = df.loc[((df['Ne_f'] != 31) &
-                        (df['Ne_f'] != 40 ))]
-                df = df.loc[( (df['Te_f'] != 31) & 
-                        (df['Te_f'] != 40) & (df['Te_f'] != 41) )]
-                df = df.loc[((df['pot_f'] != 31) &
-                        (df['pot_f'] != 32) & (df['pot_f'] != 41))]
-                df = df.drop(columns=['Ne_f','Ne_f','pot_f','Ne_c',
-                        'Te_c','pot_c'])
-
-                return df
-
-            #lp_data = flags_drop_cols(lp_data)
+            #Remove flags
+            #https://earth.esa.int/eogateway/documents/20142/37627/swarm-level
+            #-1b-product-definition-specification.pdf/12995649-fbcb-6ae2-5302
+            # -2269fecf5a08
             
+            lp_data = lp_data.loc[lp_data['LP_f'] != 7]
+            lp_data = lp_data.loc[((lp_data['Ne_f'] != 31) &
+                    (lp_data['Ne_f'] != 40 ))]
+            lp_data = lp_data.loc[( (lp_data['Te_f'] != 31) & 
+                    (lp_data['Te_f'] != 40) & (lp_data['Te_f'] != 41) )]
+            lp_data = lp_data.loc[((lp_data['pot_f'] != 31) &
+                    (lp_data['pot_f'] != 32) & (lp_data['pot_f'] != 41))]
+            lp_data = lp_data.drop(columns=['Ne_f','Ne_f','pot_f','Ne_c',
+                    'Te_c','pot_c'])
 
     except RuntimeError:
         raise Exception('Problems extracting LP data')
@@ -261,19 +238,24 @@ def openEFI(dire):
 
 ##Load open functions
 #IBI_data = openIBI(IBI_dir)
-LP_data = openLP(LP_dir)
 #EFI_data = openEFI(EFI_dir)
-print(LP_data)
-#print(IBI_data, LP_data, EFI_data)
+#LP_data = openLP(LP_dir)
+#print(LP_data)
+#print(IBI_data, EFI_data)
 
 def mergeCDF(IBI, LP, EFI):
 
-    print('Loading instruments...')
+    print ('Loading instruments...')
     #Load cdf's
     read_IBI = pd.read_hdf(IBI)
     read_LP = pd.read_hdf(LP)
     read_EFI = pd.read_hdf(EFI)
     #print(read_IBI, read_LP, read_EFI)
+
+    #df = read_LP
+    #df = df.sort_values(by=['datetime'], ascending = True)
+    #print(df)
+
     
     try:
         print ('Joining dataframes...')
@@ -293,14 +275,16 @@ def mergeCDF(IBI, LP, EFI):
         joined_cdf = splitDatetime(joined_cdf)
         joined_cdf = joined_cdf.sort_values(by=['s_id','date','utc'], 
                 ascending = True)
+        #joined_cdf = joined_cdf[['date','utc','mlt','lat','long','alt','s_id',
+        #        'b_ind','b_prob','Ne','Ne_std','Ti','Ti_std','pot','pot_std',
+        #        'Te','Te_std']]
 
-        joined_cdf = joined_cdf[['date','utc','mlt','lat','long','alt','s_id',
-                'b_ind','b_prob','Ne','Ne_std','Ti','Ti_std','pot','pot_std',
-                'Te','Te_std']]
+        joined_cdf = joined_cdf[['date','utc','mlt','lat','long','Ne','Te']]
 
-        #joined_cdf = joined_cdf[['date','utc','mlt','lat','long','s_id',
-        #        'Ne','Te']]
-
+        temp_df = joined_cdf["date"].str.split("-", n = 2, expand = True)
+        joined_cdf["year"] = temp_df [0]
+        joined_cdf["month"] = temp_df [1]
+        joined_cdf = joined_cdf[::60]
         joined_cdf = joined_cdf.reset_index().drop(columns=['index'])
 
         #print('Joined dataframe\n',joined_cdf)
@@ -308,41 +292,79 @@ def mergeCDF(IBI, LP, EFI):
     except RuntimeError:
         raise Exception('Problems joining dataframes')
 
+    print(joined_cdf)
+
     #joined_cdf.to_hdf(joined_output, key = 'efi_data', mode = 'w')
-    to_csv = joined_cdf.to_csv(joined_output, index=False, header = True)
-    
-    #print(to_csv)
+    joined_cdf.to_csv(joined_output, index=False, header = True)
     print('Joined dataframes exported')
-    
+
+    #return joined_cdf'''
+
 #merged_cdf = mergeCDF(IBI_output, LP_output, EFI_output)
 
-#df = pd.read_csv(joined_output)
+df = pd.read_csv(joined_output)
 #print(df)
+#df = df[::60]
 
-def heatmap(df):
+def heatmap():
 
-    import numpy as np
-
-    df = df[df['b_ind']!= -1]
-    df = df[~df['mlt'].between(6,18)]
-
-    temp_df = df["date"].str.split("-", n = 2, expand = True)
-    df["year"] = temp_df [0]
-    df["month"] = temp_df [1]
-    df = df[::60]
-    df = df.reset_index().drop(columns=['index'])
-
-    pivot_data = df.pivot_table("b_ind","month","year", aggfunc=np.sum, dropna = False)
-    print(pivot_data)
+    pivot_data = df.pivot_table("Ne","month","year", aggfunc=np.mean, dropna = False)
 
     import seaborn as sns 
     from matplotlib import pyplot as plt
     from matplotlib.colors import LogNorm
-    
+
     cbar = 'rocket'
-    sns.heatmap(pivot_data, annot=False, cbar=cbar, linewidths=0.1, vmin=0,
-             fmt=".0f")
+    sns.heatmap(pivot_data, annot=False, cbar=cbar, linewidths=0.1, vmin=0, 
+            norm = LogNorm(), fmt=".0f")
 
     plt.show()
+        
+def daynight(x):
+    if 6 > x < 18:
+        return 'daytime'
+    else:
+        return 'nightime'   
+    
+def latitudes(x):
+    if 60 <= x <= 90:
+        return 'high-lat'
+    elif 30 < x < 60:
+        return 'mid-lat'
+    elif 10 < x < 30:
+        return 'low-lat'
+    elif -10 < x < 10:
+        return 'equator'
+    elif -30 < x < -10:
+        return 'low-lat'
+    elif -60 < x < -30:
+        return 'mid-lat'
+    else:
+        return 'high-lat'   
 
-#heatmap(df)
+def seasons(x):
+    if 0 > x < 3:
+        return 'winter'
+    elif 2 > x < 6:
+        return 'spring'
+    elif 5 > x < 9:
+        return 'summer'
+    elif 8 > x < 12:
+        return 'autumn'
+    else:
+        return 'winter'   
+
+#df['time'] = df['mlt'].apply(daynight)
+#df['latitudes'] = df['lat'].apply(latitudes)
+
+#df = df.loc[df['Te'] <= 5000]
+#df = df.loc[df['Te'] > 0]
+
+#df['seasons'] = df['month'].apply(seasons)
+
+heatmap()
+
+
+# df.to_csv(joined_output, index=False, header = True)
+
+#print(df)

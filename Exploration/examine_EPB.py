@@ -9,6 +9,32 @@ from datetime import date
 
 #Load exported .hdf files
 hdf_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/April-16/'
+#hdf_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/decadal/'
+
+file_name = 'joined-data-2022-01-13.h5'
+pathfile = hdf_path+file_name
+df = pd.read_hdf(pathfile)
+#df = df[df['lat'] == 34.448736]
+df = df[df['date'] == '2016-04-04']
+df = df[df['s_id'] == 'A']
+#df = df[:2700:] #45 min
+#df = df[:5400:] #90min
+
+def pass_count(df):
+    ml = []
+    start = 0
+    for i in range(len(df.index)):
+        if i % 2700 == 0:
+            start +=1
+        else:
+            pass
+        ml.append(start)
+    return ml
+
+#counter = pass_count(df)
+#df['pass'] = counter
+#print(df)
+
 
 class WrangleData():
     
@@ -19,15 +45,33 @@ class WrangleData():
     @classmethod  # method that can be called before obj is created
     def frompath(cls, hdf_path, select_date=None):
         today =  str(date.today())
-        file_name = 'joined-data-'+ today +'.h5'
+        #file_name = 'joined-data_2022-01-13'+ today +'.h5'
+        file_name = 'joined-data-2022-01-13.h5'
         return cls(hdf_path+file_name, select_date)
 
 
     def transform_EPB(self, sat, s_time, e_time, s_lat, e_lat):
+
+        def pass_count(df):
+                ml = []
+                start = 0
+                for i in range(len(df.index)):
+                        if i % 2700 == 0:
+                                start +=1
+                        else:
+                                pass
+                        ml.append(start)
+                return ml
+
+        counter = pass_count(self.df)
+        self.df['pass'] = counter
+
+        
+
         #Filter the data
-        self.df = self.df[self.df['b_ind']!= -1] #remove non-useful data
-        self.df = self.df[self.df['long'].between(10,180)] #remove the SSA
-        self.df = self.df[~self.df['mlt'].between(6,18)] #Nightime only
+        #self.df = self.df[self.df['b_ind']!= -1] #remove non-useful data
+        #self.df = self.df[self.df['long'].between(10,180)] #remove the SSA
+        #self.df = self.df[~self.df['mlt'].between(6,18)] #Nightime only
         self.df = self.df[self.df['s_id'] == sat]
         self.df = self.df[self.df['utc'].between(s_time, e_time)]
         self.df = self.df[self.df['lat'].between(s_lat,e_lat)] #EPB region 
@@ -35,7 +79,7 @@ class WrangleData():
         def new_classifier(df):
 
                 def classify_EPB(ne_std, b_ind, ti_std, pot_std):
-                        if ne_std > 0.01 and ti_std > 0.01 and pot_std > 0.01:
+                        if ne_std > 0.01 and ti_std > 0.008 and pot_std > 0.01:
                                 return 1
                         else:
                                 return 0
@@ -116,37 +160,46 @@ class WrangleData():
 
         return df
     
-select_date = None
-#select_date = '2016-04-07'
+# select_date = None
+select_date = '2016-04-07'
 w = WrangleData.frompath(hdf_path, select_date)
 
 sat = 'A'
 #sat = None
 #start_time, end_time = '20:01:00', '20:10:00'
-start_lat, end_lat = -30, 30
+start_lat, end_lat = -90, 90
 #start_lat, end_lat = -90, 90
 #epb_only = False
 start_time, end_time = '00:00:00','23:59:59'
 cleaned_df = w.transform_EPB(sat, start_time, end_time, start_lat, end_lat)
 
-print('Outside Class\n', cleaned_df)
+#print('Outside Class\n', cleaned_df)
 #print(cleaned_df['epb'].value_counts(sort=True))
 #print(cleaned_df['b_ind'].value_counts(sort=True))
 
 #Export
-from datetime import date
-today =  str(date.today())
-joined_output = hdf_path + 'wrangled-EPB-'+ today +'.h5'
-cleaned_df.to_hdf(joined_output, key = 'efi_data', mode = 'w')
+# from datetime import date
+# today =  str(date.today())
+# joined_output = hdf_path + 'wrangled-EPB-'+ today +'.h5'
+# cleaned_df.to_hdf(joined_output, key = 'efi_data', mode = 'w')
+# print('Exported Wrangled EPB data')
 
 
 class PlotEPB():
 
     def __init__(self, df):
         self.df = df
+        self.pass_num = 17
+        self.df = self.df[self.df['pass'] == self.pass_num]
+        #self.df = self.df[self.df['lat'].between(-30,40)]
+        #self.df = self.df[self.df['b_ind']!= -1] #remove non-useful data
+        #self.df = self.df[self.df['long'].between(10,180)] #remove the SSA
+        self.df = self.df[~self.df['mlt'].between(6,18)] #Nightime only
+        #self.df = self.df[self.df['epb'] == 1]
         print(self.df)
 
     def plotNoStdDev(self):
+        
 
         figs, axs = plt.subplots(ncols=1, nrows=6, figsize=(10,7), 
         dpi=90, sharex=True) #3.5 for single, #5.5 for double
@@ -201,7 +254,8 @@ class PlotEPB():
 
 
         axs[0].set_title(f'{title}: from {date_s} at {utc_s} ' 
-                f'to {date_e} at {utc_e}. Spacecraft: {sat}', fontsize = 11)
+                f'to {date_e} at {utc_e}. Spacecraft: {sat}, Pass: '
+                f'{self.pass_num}', fontsize = 11)
         axs[0].set_ylabel('EPB \n (SWARM)')
         #axs[0].set_ylim(0, 1)
         axs[0].tick_params(bottom = False)
@@ -456,8 +510,6 @@ class PlotEPB():
         plt.tight_layout()
         plt.show()
 
-
-
     def plotEPBCount(self):
         #self.df == self.df
         print(self.df)
@@ -476,8 +528,8 @@ class PlotEPB():
         plt.show()
 
 
-#p = PlotEPB(cleaned_df)
-#panels = p.plotNoStdDev()
+p = PlotEPB(cleaned_df)
+panels = p.plotNoStdDev()
 #panels = p.plotStdDev()
 #panels = p.plotRaw()
 #counts = p.plotEPBCount()

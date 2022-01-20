@@ -13,11 +13,11 @@ import os
 import zipfile
 import patoolib
 
-SATE = ['A','C'] #select spacecraft
-YEAR = [2019,2020] #select years
-MONTH = [3]
-DAYS = 10 #how many days of data needed. Do not exceed 30
-START_DAY = 10 #start the loop
+SATE = ['A'] #select spacecraft
+YEAR = [2013] #select years
+MONTH = [1,2,3,4,5,6,7,8,9,10,11,12]
+DAYS = 1 #how many days of data needed. Do not exceed 30
+START_DAY = 1 #start the loop
 
 for SAT in SATE:
     for YR in YEAR:
@@ -26,9 +26,9 @@ for SAT in SATE:
                 DOM = DOM + START_DAY
                 
                 #Select path for download
-                path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP'  #Density and potential
-                #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/March-19' #Ion temp
-                #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/April-16' #Bubbles and IPIR
+                path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/orbyts'  #Density and potential
+                #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/orbyts' #Ion temp
+                #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/orbyts' #Bubbles and IPIR
 
                 path_initial = os.path.join(path,str(YR).zfill(4)+str(MON).zfill(2)+str(DOM).zfill(2)+str(SAT))
                 path_downloaded_data_LP=os.path.join(path_initial)
