@@ -116,7 +116,7 @@ class extractCDF():
 #LP_data = extract.extractLP(LP_dir)
 #print(LP_data)
 
-dire = LP_dir
+#dire = LP_dir
 
 class extraction():
 
@@ -158,10 +158,12 @@ class extraction():
                 'b_ind':bub_ind, 'b_prob':bub_prob,
                 's_id':sat_id})
 
+        cdf_df = cdf_df[cdf_df['lat'].between(-30,30)] #Nightime only
+
         #class functions
         counter = self.pass_count(cdf_df)
         cdf_df['p_num'] = counter
-        cdf_df['datetime'] = cdf_df['datetime'].apply(self.convert2Datetime).str[0].astype(str)
+        #cdf_df['datetime'] = cdf_df['datetime'].apply(self.convert2Datetime).str[0].astype(str)
 
         return cdf_df
 
@@ -191,29 +193,59 @@ class extraction():
         #class functions
         #counter = self.pass_count(cdf_df)
         #cdf_df['p_num'] = counter
-        cdf_df['datetime'] = cdf_df['datetime'].apply(self.convert2Datetime).str[0].astype(str)
+        #cdf_df['datetime'] = cdf_df['datetime'].apply(self.convert2Datetime).str[0].astype(str)
 
         return cdf_df
 
-    def get_data(self,dire_1,instrument):
+    def get_data_2(self, ibi_dir,lp_dir):
+    #def get_data(self,ibi_dir,instrument):
+
+        ibi_arr = []
+        ibi_files = ibi_dir.glob('**/*.cdf')
+        for f in ibi_files:
+            cdf_ibi = cdflib.CDF(f)
+            ibi_arr.append(self.IBI_data(cdf_ibi,f))
+
+            lp_arr = []
+            lp_files = lp_dir.glob('**/*.cdf')
+            for j in lp_files:
+                cdf_lp = cdflib.CDF(j)
+                lp_arr.append(self.LP_data(cdf_lp,j))
+            cdf_data_2 = pd.concat(lp_arr)
+            
+            #return cdf_array_2
+            #LP_data = get_vars(cdf)
+            #ibi_arr.append(self.IBI_data(cdf,f))
+            #ibi_arr.append(instrument(cdf,f))
+            #ibi_arr.append(self.IBI_data(cdf,f))
+        cdf_data = pd.concat(ibi_arr)
+
+        merged = cdf_data_2.merge(cdf_data, on = ['datetime','s_id'])
+        #merged = pd.concat(merged)
+
+        #merged['datetime'] = merged['datetime'].apply(self.convert2Datetime).str[0].astype(str)
+
+        return merged
+
+    def get_data(self,dire,instrument):
 
         cdf_array = []
-        cdf_files = dire_1.glob('**/*.cdf')
+        ibi_files = dire.glob('**/*.cdf')
         for f in cdf_files:
             cdf = cdflib.CDF(f)
-            #LP_data = get_vars(cdf)
-            #cdf_array.append(self.IBI_data(cdf,f))
             cdf_array.append(instrument(cdf,f))
             cdf_data = pd.concat(cdf_array)
-
         return cdf_data
 
 extract = extraction()
+multi_data = extract.get_data_2(IBI_dir, LP_dir)
+print(multi_data)
+
 #lp_data = extract.get_data(LP_dir)
-ibi_data = extract.get_data(IBI_dir, extract.IBI_data)
+#ibi_data = extract.get_data(IBI_dir, extract.IBI_data)
 #lp_data = extract.get_data(LP_dir, extract.LP_data)
 
-print(ibi_data)
+#print(ibi_data)
 #print(lp_data)
 
 #merged_instruments = ibi_data.merge(lp_data, on = ['datetime','s_id'])
