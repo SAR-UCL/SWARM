@@ -165,6 +165,9 @@ class extraction():
         cdf_df['p_num'] = counter
         #cdf_df['datetime'] = cdf_df['datetime'].apply(self.convert2Datetime).str[0].astype(str)
 
+        #cdf_df['datetime'] = cdf_df['datetime'].apply(self.convert2Datetime).str[0].astype(str)
+        #cdf_df["datetime"] = cdf_df['datetime'].str.slice(stop =-4)
+
         return cdf_df
 
     def LP_data(self,cdf,f):
@@ -190,6 +193,11 @@ class extraction():
             "pot":Vs,"LP_f":LP_flag,"Te_f":Te_flag, "Ne_f":ne_flag,
             "pot_f":Vs_flag,"s_id":sat_id})
 
+        cdf_df = cdf_df[cdf_df['Te'].between(0,5000)]
+
+        #cdf_df['datetime'] = cdf_df['datetime'].apply(self.convert2Datetime).str[0].astype(str)
+        #cdf_df["datetime"] = cdf_df['datetime'].str.slice(stop =-4)
+
         #class functions
         #counter = self.pass_count(cdf_df)
         #cdf_df['p_num'] = counter
@@ -197,48 +205,86 @@ class extraction():
 
         return cdf_df
 
-    def get_data_2(self, ibi_dir,lp_dir):
-    #def get_data(self,ibi_dir,instrument):
+    def EFI_data(self,cdf, f):
+        #Get sat ID
+        sat_id = str(f)
+        sat_id = sat_id[-61:-60]
 
+        utc = cdf.varget("Timestamp")
+        mlt = cdf.varget("MLT")
+        #Tn = cdf.varget("Tn_msis")
+        Ti = cdf.varget("Ti_meas_drift")
+        #TiM = cdf.varget("Ti_model_drift")
+        Te = cdf.varget("Te_adj_LP")
+
+        #flag 
+        Ti_flag = cdf.varget("Flag_ti_meas")
+
+        #place in dataframe
+        cdf_df = pd.DataFrame({'mlt':mlt, 'Te':Te,
+                "Ti":Ti, "Ti_f":Ti_flag, "s_id":sat_id})
+
+        cdf_df = cdf_df[::2]
+
+        cdf_df = cdf_df[~cdf_df['mlt'].between(6,18)]
+        cdf_df = cdf_df[cdf_df['Ti'].between(0,3000)]
+
+        #cdf_df['datetime'] = cdf_df['datetime'].apply(self.convert2Datetime).str[0].astype(str)
+        #cdf_df["datetime"] = cdf_df['datetime'].str.slice(stop =-4)
+
+        return cdf_df
+
+
+    def get_instru_data(self, ibi_dir,lp_dir, efi_dir):
+        
+        #ionospheric bubble index, l2 product
         ibi_arr = []
         ibi_files = ibi_dir.glob('**/*.cdf')
-        for f in ibi_files:
-            cdf_ibi = cdflib.CDF(f)
-            ibi_arr.append(self.IBI_data(cdf_ibi,f))
+        for i in ibi_files:
+            cdf_ibi = cdflib.CDF(i)
+            ibi_arr.append(self.IBI_data(cdf_ibi,i))
 
+            #Langmuir Probe, l1 product
             lp_arr = []
             lp_files = lp_dir.glob('**/*.cdf')
             for j in lp_files:
                 cdf_lp = cdflib.CDF(j)
                 lp_arr.append(self.LP_data(cdf_lp,j))
-            cdf_data_2 = pd.concat(lp_arr)
+                
+                #Electric Field Instrument, l2 product
+                efi_arr = []
+                efi_files = efi_dir.glob('**/*.cdf')
+                for k in efi_files:
+                    cdf_efi = cdflib.CDF(k)
+                    efi_arr.append(self.EFI_data(cdf_efi, k))
+                    efi_data = pd.concat(efi_arr)
             
-            #return cdf_array_2
-            #LP_data = get_vars(cdf)
-            #ibi_arr.append(self.IBI_data(cdf,f))
-            #ibi_arr.append(instrument(cdf,f))
-            #ibi_arr.append(self.IBI_data(cdf,f))
-        cdf_data = pd.concat(ibi_arr)
+                lp_data = pd.concat(lp_arr)
 
-        merged = cdf_data_2.merge(cdf_data, on = ['datetime','s_id'])
-        #merged = pd.concat(merged)
+            
+            ibi_data = pd.concat(ibi_arr)
+            #print(ibi_data)
 
-        #merged['datetime'] = merged['datetime'].apply(self.convert2Datetime).str[0].astype(str)
+        #merge = efi_data.merge(lp_data, on = 
+        #        ['datetime','s_id'])
+            
+            merge = lp_data.merge(efi_data, on = ['s_id', 'Te']).merge(ibi_data, on =['datetime','s_id'])
+            #merge =  lp_data.merge(ibi_data, on = 
+            #        ['datetime','s_id']).merge(efi_data, on = ['datetime','s_id'])
 
-        return merged
+            #print(merge)
 
-    def get_data(self,dire,instrument):
+        #efi_data['datetime'] = efi_data['datetime'].apply(self.convert2Datetime).str[0].astype(str)
+        #efi_data["datetime"] = efi_data['datetime'].str.slice(stop =-4)
+        
+            merge['datetime'] = merge['datetime'].apply(self.convert2Datetime).str[0].astype(str)
+            print(merge)
 
-        cdf_array = []
-        ibi_files = dire.glob('**/*.cdf')
-        for f in cdf_files:
-            cdf = cdflib.CDF(f)
-            cdf_array.append(instrument(cdf,f))
-            cdf_data = pd.concat(cdf_array)
-        return cdf_data
+        #return merge
+        
 
 extract = extraction()
-multi_data = extract.get_data_2(IBI_dir, LP_dir)
+multi_data = extract.get_instru_data(IBI_dir, LP_dir, EFI_dir)
 print(multi_data)
 
 #lp_data = extract.get_data(LP_dir)
