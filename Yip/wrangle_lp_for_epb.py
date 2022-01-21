@@ -19,7 +19,7 @@ LP_output = path + 'LP-data_'+dir_suffix+'.h5'
 EFI_output = path + 'EFI-data_'+dir_suffix+'.h5'
 
 today =  str(date.today())
-joined_output = path + 'decadal-data-'+ today +'.csv'
+joined_output = path + 'test-data-'+ today +'.csv'
 
 class extractCDF():
 
@@ -135,6 +135,24 @@ class extraction():
                 ml.append(start)
         return ml
 
+    def flags_drop_cols(self,df):
+            #Remove flags
+            #https://earth.esa.int/eogateway/documents/20142/37627/swarm-level
+            #-1b-product-definition-specification.pdf/12995649-fbcb-6ae2-5302
+            # -2269fecf5a08
+                
+            df = df.loc[df['LP_f'] != 7]
+            df = df.loc[((df['Ne_f'] != 31) &
+                    (df['Ne_f'] != 40 ))]
+            df = df.loc[( (df['Te_f'] != 31) & 
+                    (df['Te_f'] != 40) & (df['Te_f'] != 41) )]
+            df = df.loc[((df['pot_f'] != 31) &
+                    (df['pot_f'] != 32) & (df['pot_f'] != 41))]
+            #df = df.drop(columns=['Ne_f','Ne_f','pot_f','Ne_c',
+            #        'Te_c','pot_c'])
+
+            return df
+
     def IBI_data(self, cdf, f):
         #Get sat ID
         sat_id = str(f)
@@ -158,7 +176,7 @@ class extraction():
                 'b_ind':bub_ind, 'b_prob':bub_prob,
                 's_id':sat_id})
 
-        cdf_df = cdf_df[cdf_df['lat'].between(-30,30)] #Nightime only
+        #cdf_df = cdf_df[cdf_df['lat'].between(-30,30)] #Nightime only
 
         #class functions
         counter = self.pass_count(cdf_df)
@@ -193,15 +211,62 @@ class extraction():
             "pot":Vs,"LP_f":LP_flag,"Te_f":Te_flag, "Ne_f":ne_flag,
             "pot_f":Vs_flag,"s_id":sat_id})
 
+        def calc_small_ROC(df):
+            #Rate of change cm/s or k/s or pot/s
+            pc_df = df[['Ne','pot']].pct_change(periods=1) #change in seconds
+            pc_df = pc_df.rename(columns = {"Ne":"Ne_c", "pot":"pot_c"}) 
+            df = pd.concat([df, pc_df], axis=1)
+
+            #std deviation over change over x seconds
+            #How far, on average, the results are from the mean
+            std_df = df[['Ne_c','pot_c']].rolling(10).std()
+            std_df = std_df.rename(columns = {"Ne_c":"Ne_std_s", "pot_c":"pot_std_s"}) 
+            df = pd.concat([df,std_df], axis = 1)
+
+            df = df.dropna()
+
+            return df
+
+        def calc_large_ROC(df):
+            #Rate of change cm/s or k/s or pot/s
+            pc_df = df[['Ne','pot']].pct_change(periods=1) #change in seconds
+            pc_df = pc_df.rename(columns = {"Ne":"Ne_c2", "pot":"pot_c2"}) 
+            df = pd.concat([df, pc_df], axis=1)
+
+            #std deviation over change over x seconds
+            #How far, on average, the results are from the mean
+            #std_df = df[['Ne_c2','pot_c2']].rolling(60).std()
+            std_df = df[['Ne_c2','pot_c2']].rolling(10, win_type='gaussian').sum(std=4)
+            std_df = std_df.rename(columns = {"Ne_c2":"Ne_std_l", "pot_c2":"pot_std_l"}) 
+            df = pd.concat([df,std_df], axis = 1)
+
+            df = df.dropna()
+
+            return df
+
+        cdf_df = calc_small_ROC(cdf_df)
+        cdf_df = calc_large_ROC(cdf_df)
+
+        def flags_drop_cols(df):
+            #Remove flags
+            #https://earth.esa.int/eogateway/documents/20142/37627/swarm-level
+            #-1b-product-definition-specification.pdf/12995649-fbcb-6ae2-5302
+            # -2269fecf5a08
+                
+            df = df.loc[df['LP_f'] != 7]
+            df = df.loc[((df['Ne_f'] != 31) &
+                    (df['Ne_f'] != 40 ))]
+            df = df.loc[( (df['Te_f'] != 31) & 
+                    (df['Te_f'] != 40) & (df['Te_f'] != 41) )]
+            df = df.loc[((df['pot_f'] != 31) &
+                    (df['pot_f'] != 32) & (df['pot_f'] != 41))]
+            df = df.drop(columns=['Ne_f','Ne_f','pot_f','Ne_c', 'Te_f', 'LP_f',
+                    'pot_c','Ne_c2', 'pot_c2'])
+
+            return df
+        cdf_df = flags_drop_cols(cdf_df)
+        
         cdf_df = cdf_df[cdf_df['Te'].between(0,5000)]
-
-        #cdf_df['datetime'] = cdf_df['datetime'].apply(self.convert2Datetime).str[0].astype(str)
-        #cdf_df["datetime"] = cdf_df['datetime'].str.slice(stop =-4)
-
-        #class functions
-        #counter = self.pass_count(cdf_df)
-        #cdf_df['p_num'] = counter
-        #cdf_df['datetime'] = cdf_df['datetime'].apply(self.convert2Datetime).str[0].astype(str)
 
         return cdf_df
 
@@ -229,11 +294,12 @@ class extraction():
         cdf_df = cdf_df[~cdf_df['mlt'].between(6,18)]
         cdf_df = cdf_df[cdf_df['Ti'].between(0,3000)]
 
+        #cdf_df = cdf_df[cdf_df['Ti_f'] == 5]
+
         #cdf_df['datetime'] = cdf_df['datetime'].apply(self.convert2Datetime).str[0].astype(str)
         #cdf_df["datetime"] = cdf_df['datetime'].str.slice(stop =-4)
 
         return cdf_df
-
 
     def get_instru_data(self, ibi_dir,lp_dir, efi_dir):
         
@@ -258,148 +324,181 @@ class extraction():
                     cdf_efi = cdflib.CDF(k)
                     efi_arr.append(self.EFI_data(cdf_efi, k))
                     efi_data = pd.concat(efi_arr)
-            
+                
                 lp_data = pd.concat(lp_arr)
-
             
             ibi_data = pd.concat(ibi_arr)
-            #print(ibi_data)
 
-        #merge = efi_data.merge(lp_data, on = 
-        #        ['datetime','s_id'])
-            
             merge = lp_data.merge(efi_data, on = ['s_id', 'Te']).merge(ibi_data, on =['datetime','s_id'])
-            #merge =  lp_data.merge(ibi_data, on = 
-            #        ['datetime','s_id']).merge(efi_data, on = ['datetime','s_id'])
 
+            merge['datetime'] = merge['datetime'].apply(self.convert2Datetime).str[0].astype(str)
+            
+            def splitDatetime(df):
+                temp_df = df["datetime"].str.split(" ", n = 1, expand = True)
+                df["date"] = temp_df [0]
+                df["utc"] = temp_df [1]
+                df = df.reset_index().drop(columns=['datetime','index'])
+        
+                return df
+        
+            merge = splitDatetime(merge)
+            
             #print(merge)
 
-        #efi_data['datetime'] = efi_data['datetime'].apply(self.convert2Datetime).str[0].astype(str)
-        #efi_data["datetime"] = efi_data['datetime'].str.slice(stop =-4)
-        
-            merge['datetime'] = merge['datetime'].apply(self.convert2Datetime).str[0].astype(str)
-            print(merge)
-
-        #return merge
+        #print(merge)
+        #return lp_data
+        return merge
         
 
 extract = extraction()
-multi_data = extract.get_instru_data(IBI_dir, LP_dir, EFI_dir)
-print(multi_data)
+#multi_data = extract.get_instru_data(IBI_dir, LP_dir, EFI_dir)
+#print(multi_data)
+#to_csv = multi_data.to_csv(joined_output, index=False, header = True)
+#print('data exported')
 
-#lp_data = extract.get_data(LP_dir)
-#ibi_data = extract.get_data(IBI_dir, extract.IBI_data)
-#lp_data = extract.get_data(LP_dir, extract.LP_data)
+#######
+#Load csv
+df = pd.read_csv(joined_output)
 
-#print(ibi_data)
-#print(lp_data)
+#df = df[df['b_ind'] == 1]
+df = df[df['p_num'] == 2]
+df = df[df['lat'].between(-12,12)]
+df = df[df['date'] == '2014-01-15']
+df = df.sort_values(by=['utc'], ascending=True)
 
-#merged_instruments = ibi_data.merge(lp_data, on = ['datetime','s_id'])
-#print(merged_instruments)
+def gauss_check(x):
+    if x <= -0.4 or x>0.4:
+        return 1
+    else:
+        return 0
 
+df['g_epb'] = df['Ne_std_l'].apply(gauss_check)
 
-def openLP(dire):
+def stddev_check(x):
+    if x > 0.2:
+        return 1
+    else:
+        return 0
 
-    cdf_array = []
-    cdf_files = dire.glob('**/*.cdf')
+df['stdev_epb'] = df['Ne_std_l'].apply(stddev_check)
 
-    print ("Extracting LP data...")
-    try:
-        for f in cdf_files:
-            cdf = cdflib.CDF(f)
+print(df)
 
-            sat_id = str(f)
-            sat_id = sat_id[-72:-71]
-
-            utc = cdf.varget("Timestamp")
-            alt = cdf.varget("Radius")
-
-            Te = cdf.varget("Te")
-            Ne = cdf.varget("Ne")
-            Vs = cdf.varget("Vs")
-            
-            #Flags
-            #info https://earth.esa.int/eogateway/documents/20142/37627/swarm-level-1b-plasma-processor-algorithm.pdf
-            LP_flag = cdf.varget("Flags_LP")
-            Te_flag = cdf.varget("Flags_Te")
-            ne_flag = cdf.varget("Flags_Ne")
-            Vs_flag = cdf.varget("Flags_Vs")
-
-            cdf_df = pd.DataFrame({"datetime":utc, "alt":alt, "Ne":Ne, "Te":Te, 
-                "pot":Vs,"LP_f":LP_flag,"Te_f":Te_flag, "Ne_f":ne_flag,
-                "pot_f":Vs_flag,"s_id":sat_id})
-            cdf_array.append(cdf_df)
-
-            lp_data = pd.concat(cdf_array)
+from matplotlib import pyplot as plt
+import seaborn as sns
+import numpy as np
 
 
-            def calcROC(df):
-            
-                #Rate of change cm/s or k/s or pot/s
-                pc_df = df[['Ne','Te','pot']].pct_change(periods=1) #change in seconds
-                pc_df = pc_df.rename(columns = {"Ne":"Ne_c", "Te":"Te_c", "pot":"pot_c"}) 
-                df = pd.concat([df, pc_df], axis=1)
-
-                #std deviation over change over x seconds
-                #How far, on average, the results are from the mean
-                std_df = df[['Ne_c','Te_c','pot_c']].rolling(10).std()
-                std_df = std_df.rename(columns = {"Ne_c":"Ne_std", "Te_c":"Te_std", "pot_c":"pot_std"}) 
-                df = pd.concat([df,std_df], axis = 1)
-
-                df = df.dropna()
-
-                return df
-
-            lp_data = calcROC(lp_data)
-
-            def pass_count(df):
-                ml = []
-                start = 0
-                for i in range(len(df.index)):
-                        if i % 2700 == 0:
-                                start +=1
-                        else:
-                                pass
-                        ml.append(start)
-                return ml
-            counter = pass_count(lp_data)
-            lp_data['p_num'] = counter
-
-            def flags_drop_cols(df):
-                #Remove flags
-                #https://earth.esa.int/eogateway/documents/20142/37627/swarm-level
-                #-1b-product-definition-specification.pdf/12995649-fbcb-6ae2-5302
-                # -2269fecf5a08
-                    
-                df = df.loc[df['LP_f'] != 7]
-                df = df.loc[((df['Ne_f'] != 31) &
-                        (df['Ne_f'] != 40 ))]
-                df = df.loc[( (df['Te_f'] != 31) & 
-                        (df['Te_f'] != 40) & (df['Te_f'] != 41) )]
-                df = df.loc[((df['pot_f'] != 31) &
-                        (df['pot_f'] != 32) & (df['pot_f'] != 41))]
-                df = df.drop(columns=['Ne_f','Ne_f','pot_f','Ne_c',
-                        'Te_c','pot_c'])
-
-                return df
-
-            #lp_data = flags_drop_cols(lp_data)
-            
-
-    except RuntimeError:
-        raise Exception('Problems extracting LP data')
-
-    def convert2Datetime(utc):
-        utc = cdflib.epochs.CDFepoch.to_datetime(utc)
-        return utc
+def plotNoStdDev(df):
         
-    lp_data['datetime'] = lp_data['datetime'].apply(convert2Datetime).str[0].astype(str)
-    lp_data = lp_data.reset_index().drop(columns=['index'])
+        #df = df[df[''] == 32]
+        #df = df[df['p_num'] == 32]
+        
+        figs, axs = plt.subplots(ncols=1, nrows=7, figsize=(10,7), 
+        dpi=90, sharex=True) #3.5 for single, #5.5 for double
+        axs = axs.flatten()
 
-    #Export 
-    lp_data.to_hdf(LP_output, key = 'lp_data', mode = 'w')
-    print ('LP data exported.')
-    return lp_data
+        x = 'lat'
+        #palette_ne, palette_ti, palette_pot = 'Set1', 'Set2', 'tab10'
+        #palette_ne, palette_ti, palette_pot = 'flag', 'flag', 'flag'
+        hue = 's_id'
+        sns.lineplot(ax = axs[0], data = df, x = x, y ='b_ind', 
+                palette = 'bone',hue = hue, legend=False)
 
-#LP_data = openLP(LP_dir)
-#print(LP_data)
+        sns.lineplot(ax = axs[1], data = df, x =x, y ='Ne',
+                palette = 'flag', hue = hue, legend=False)
+
+        sns.lineplot(ax = axs[2], data = df, x = x, y ='Ne_std_s', 
+                #marker = 'o', linestyle='', err_style='bars', 
+                palette = 'flag', hue = hue, legend = False)
+
+        sns.lineplot(ax = axs[3], data = df, x = x, y ='Ne_std_l', 
+                palette = 'flag', hue = hue, legend = False)
+
+        sns.lineplot(ax = axs[4], data = df, x = x, y ='g_epb', 
+                palette = 'flag', hue = hue, legend = False)
+        
+        sns.lineplot(ax = axs[5], data = df, x = x, y ='stdev_epb', 
+                palette = 'flag', hue = hue, legend = False)
+        
+        #ax6 = axs[6].twinx()
+        sns.lineplot(ax = axs[6], data = df, x = x, y ='pot', 
+                palette = 'flag', hue = hue, legend = False)
+
+        date_s = df['date'].iloc[0]
+        date_e = df['date'].iloc[-1]
+        utc_s = df['utc'].iloc[0]
+        utc_e = df['utc'].iloc[-1]
+      
+        lat_s = df['lat'].iloc[0]
+        lat_e = df['lat'].iloc[-1]
+
+        epb_len = (lat_s - lat_e) * 110
+        epb_len = "{:.0f}".format(epb_len)
+        
+        #print(epb_len)
+        #axs[0].set_title(f'Equatorial Plasma Bubble: from {date_s} at {utc_s} to {date_e} at {utc_e}', fontsize = 11)
+
+        epb_check = df['b_ind'].sum()
+        if epb_check > 0:
+            title = 'Equatorial Plasma Bubble'
+        else:
+            title = 'Quiet Period'
+
+        sat = 'A'
+        pass_num = 'N/A'
+
+        axs[0].set_title(f'{title}: from {date_s} at {utc_s} ' 
+                f'to {date_e} at {utc_e}. Spacecraft: {sat}, Pass: '
+                f'{pass_num}', fontsize = 11)
+        axs[0].set_ylabel('EPB \n (SWARM)')
+        #axs[0].set_ylim(0, 1)
+        axs[0].tick_params(bottom = False)
+        #axs[0].axhline( y=0.9, ls='-.', c='k')
+
+        axs[1].set_ylabel('Ne')
+        axs[1].tick_params(bottom = False)
+        axs[1].set_yscale('log')
+
+        #left, bottom, width, height = (1, 0, 14, 7)
+        #axs[4].add_patch(Rectangle((left, bottom),width, height, alpha=1, facecolor='none'))
+
+        
+        den = r'cm$^{-3}$'
+        axs[2].set_ylabel(f'Ne std')
+        axs[2].tick_params(bottom = False)
+        #axs[3].set_yscale('log')
+
+
+        axs[3].set_ylabel('Ne gauss')
+        axs[3].tick_params(bottom = False)
+        #axs[3].set_yscale('log')
+
+        axs[4].set_ylabel('Gauss EPB')
+        axs[4].tick_params(bottom = False)
+        #axs[4].set_xlabel(' ')
+
+
+        axs[5].set_xlabel('Stddev EPB')
+        #axs[5].set_ylabel('UTC')
+        axs[5].tick_params(left = False)
+
+        axs[6].set_xlabel('pot')
+        #axs[6].set_ylabel('UTC')
+        axs[6].tick_params(left = False)
+
+
+        #ax6.set_ylabel('MLT')
+
+        n = len(df) // 3.5
+        #[l.set_visible(False) for (i,l) in 
+        #        enumerate(axs[5].yaxis.get_ticklabels()) if i % n != 0]
+
+
+        ax = plt.gca()
+        ax.invert_xaxis()
+
+        plt.tight_layout()
+        plt.show()
+
+plotNoStdDev(df)

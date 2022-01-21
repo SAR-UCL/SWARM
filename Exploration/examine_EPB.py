@@ -9,7 +9,10 @@ from datetime import date
 
 #Load exported .hdf files
 hdf_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/April-16/'
-#hdf_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/decadal/'
+#hdf_path = r'/Users/sr2
+# 
+# 
+# /OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/decadal/'
 
 file_name = 'joined-data-2022-01-13.h5'
 pathfile = hdf_path+file_name
