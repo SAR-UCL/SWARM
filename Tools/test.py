@@ -1,18 +1,16 @@
-import pandas as pd
-
-df = pd.DataFrame({'B': [0, -1, -0.5, 0.51, 0]})
-#df['tri'] = df.rolling(2, win_type = 'triang').sum()
-df['gauss'] = df.rolling(2, win_type = 'gaussian').sum(std=1)
 
 
-def gauss_check(x):
-    #if -0.5<= x <=0.5:
+#https://scipy-cookbook.readthedocs.io/items/SavitzkyGolay.html
 
-    if x <= -0.5 or x>0.5:
-        return 'epb'
-    else:
-        return 'no epb'
+#https://chart-studio.plotly.com/~empet/14813.embed
 
-df['g_epb'] = df['B'].apply(gauss_check)
 
-print(df)
+import netCDF4 as nc
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    with nc.netcdf_file('compday.KsNOdsJTz1.nc', 'r') as f:
+        lon = f.variables['lon'][::]       # copy longitude as list
+        lat = f.variables['lat'][::-1]     # invert the latitude vector -> South to North
+        olr = f.variables['olr'][0,::-1,:] # olr= outgoing longwave radiation
+    f.fp   

@@ -10,7 +10,7 @@ def mergeCSV():
 
     #path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/Phoenix/Instrument Data/analysis/first_sixty/data/stm'
     #path = r'/Users/sr2/Documents/OneDrive - University College London/PhD/Research/Missions/Phoenix/Instrument Data/analysis/Mar-21/data/double-peak'
-    path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Data/Dayside/All/EFI' 
+    path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/systematic/train_set/'
     
     filenames = glob.glob(path + "/*.csv")
 
@@ -31,10 +31,19 @@ def mergeCSV():
         new_time = (Time(2000, format='jyear') + TimeDelta(utc*u.s)).iso
         return(new_time)
     
+
+    def drop(df):
+
+        df = df[['date','utc','mlt','lat','long','s_id','pass','Ne','Ti','pot','id','epb_gt']]
+        #df['epb_gt'] = 0
+        return df
+
+    merge_csv = drop(merge_csv)
+
     #sort_df['utc'] = sort_df['utc'].apply(utc)
     #print(sort_df)
 
-    csv_output_pathfile = path + "/EFI-Dayside.csv" # -4 removes '.pkts' or '.dat'
+    csv_output_pathfile = path + "train_set.csv" # -4 removes '.pkts' or '.dat'
     merge_csv.to_csv(csv_output_pathfile, index = False, header = True)
     
     print(merge_csv)

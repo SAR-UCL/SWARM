@@ -20,6 +20,7 @@ EFI_output = path + 'EFI-data_'+dir_suffix+'.h5'
 
 today =  str(date.today())
 joined_output = path + 'test-data-'+ today +'.csv'
+joined_output_2 = path + 'test-single-pass-'+ today +'.csv'
 
 class extractCDF():
 
@@ -223,6 +224,8 @@ class extraction():
             std_df = std_df.rename(columns = {"Ne_c":"Ne_std_s", "pot_c":"pot_std_s"}) 
             df = pd.concat([df,std_df], axis = 1)
 
+            #df = df.drop(columns=['Ne_c','pot_c'])
+
             df = df.dropna()
 
             return df
@@ -237,6 +240,7 @@ class extraction():
             #How far, on average, the results are from the mean
             #std_df = df[['Ne_c2','pot_c2']].rolling(60).std()
             std_df = df[['Ne_c2','pot_c2']].rolling(10, win_type='gaussian').sum(std=4)
+            #std_df = df[['Ne_c2','pot_c2']].rolling(10, win_type='kaiser').sum(beta=1)
             std_df = std_df.rename(columns = {"Ne_c2":"Ne_std_l", "pot_c2":"pot_std_l"}) 
             df = pd.concat([df,std_df], axis = 1)
 
@@ -354,15 +358,16 @@ extract = extraction()
 #multi_data = extract.get_instru_data(IBI_dir, LP_dir, EFI_dir)
 #print(multi_data)
 #to_csv = multi_data.to_csv(joined_output, index=False, header = True)
-#print('data exported')
+print('data exported')
 
 #######
 #Load csv
 df = pd.read_csv(joined_output)
 
+
 #df = df[df['b_ind'] == 1]
 df = df[df['p_num'] == 2]
-df = df[df['lat'].between(-12,12)]
+df = df[df['lat'].between(-15,15)]
 df = df[df['date'] == '2014-01-15']
 df = df.sort_values(by=['utc'], ascending=True)
 
@@ -380,9 +385,28 @@ def stddev_check(x):
     else:
         return 0
 
-df['stdev_epb'] = df['Ne_std_l'].apply(stddev_check)
+df['stdev_epb_1'] = df['Ne_std_l'].apply(stddev_check)
+
+def stddev_check_2(x):
+    if x > 0.1:
+        return 1
+    else:
+        return 0
+
+df['stdev_epb_2'] = df['Ne_std_l'].apply(stddev_check_2)
+
+def gauss_stddev(x, y):
+        if x or y == 1:
+                return 1
+        else:
+                return 0 
+
+df['gau-dev'] = df.apply(lambda x: gauss_stddev(x.g_epb, x.stdev_epb_1), axis=1)
 
 print(df)
+
+#df.to_csv(joined_output_2, index=False, header = True)
+#print('data exported')
 
 from matplotlib import pyplot as plt
 import seaborn as sns
@@ -402,7 +426,7 @@ def plotNoStdDev(df):
         #palette_ne, palette_ti, palette_pot = 'Set1', 'Set2', 'tab10'
         #palette_ne, palette_ti, palette_pot = 'flag', 'flag', 'flag'
         hue = 's_id'
-        sns.lineplot(ax = axs[0], data = df, x = x, y ='b_ind', 
+        sns.lineplot(ax = axs[0], data = df, x = x, y ='gau-dev', 
                 palette = 'bone',hue = hue, legend=False)
 
         sns.lineplot(ax = axs[1], data = df, x =x, y ='Ne',
@@ -418,11 +442,11 @@ def plotNoStdDev(df):
         sns.lineplot(ax = axs[4], data = df, x = x, y ='g_epb', 
                 palette = 'flag', hue = hue, legend = False)
         
-        sns.lineplot(ax = axs[5], data = df, x = x, y ='stdev_epb', 
+        sns.lineplot(ax = axs[5], data = df, x = x, y ='stdev_epb_1', 
                 palette = 'flag', hue = hue, legend = False)
         
         #ax6 = axs[6].twinx()
-        sns.lineplot(ax = axs[6], data = df, x = x, y ='pot', 
+        sns.lineplot(ax = axs[6], data = df, x = x, y ='gau-dev', 
                 palette = 'flag', hue = hue, legend = False)
 
         date_s = df['date'].iloc[0]
@@ -451,7 +475,7 @@ def plotNoStdDev(df):
         axs[0].set_title(f'{title}: from {date_s} at {utc_s} ' 
                 f'to {date_e} at {utc_e}. Spacecraft: {sat}, Pass: '
                 f'{pass_num}', fontsize = 11)
-        axs[0].set_ylabel('EPB \n (SWARM)')
+        axs[0].set_ylabel('EPB \n (Man)')
         #axs[0].set_ylim(0, 1)
         axs[0].tick_params(bottom = False)
         #axs[0].axhline( y=0.9, ls='-.', c='k')

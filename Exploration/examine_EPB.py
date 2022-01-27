@@ -14,14 +14,14 @@ hdf_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missio
 # 
 # /OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/decadal/'
 
-file_name = 'joined-data-2022-01-13.h5'
-pathfile = hdf_path+file_name
-df = pd.read_hdf(pathfile)
-#df = df[df['lat'] == 34.448736]
-df = df[df['date'] == '2016-04-04']
-df = df[df['s_id'] == 'A']
-#df = df[:2700:] #45 min
-#df = df[:5400:] #90min
+# file_name = 'joined-data-2022-01-13.h5'
+# pathfile = hdf_path+file_name
+# df = pd.read_hdf(pathfile)
+# #df = df[df['lat'] == 34.448736]
+# df = df[df['date'] == '2016-04-04']
+# df = df[df['s_id'] == 'A']
+# #df = df[:2700:] #45 min
+# #df = df[:5400:] #90min
 
 def pass_count(df):
     ml = []
@@ -164,14 +164,14 @@ class WrangleData():
         return df
     
 # select_date = None
-select_date = '2016-04-07'
+select_date = '2016-04-02'
 w = WrangleData.frompath(hdf_path, select_date)
 
 sat = 'A'
 #sat = None
 #start_time, end_time = '20:01:00', '20:10:00'
-start_lat, end_lat = -90, 90
 #start_lat, end_lat = -90, 90
+start_lat, end_lat = -90, 90
 #epb_only = False
 start_time, end_time = '00:00:00','23:59:59'
 cleaned_df = w.transform_EPB(sat, start_time, end_time, start_lat, end_lat)
@@ -192,14 +192,21 @@ class PlotEPB():
 
     def __init__(self, df):
         self.df = df
-        self.pass_num = 17
+        self.pass_num = 10
         self.df = self.df[self.df['pass'] == self.pass_num]
-        #self.df = self.df[self.df['lat'].between(-30,40)]
+        #self.df = self.df[self.df['utc'].between('21:30:00','21:45:59')]
+        self.df = self.df[self.df['lat'].between(-15,15)]
         #self.df = self.df[self.df['b_ind']!= -1] #remove non-useful data
         #self.df = self.df[self.df['long'].between(10,180)] #remove the SSA
         self.df = self.df[~self.df['mlt'].between(6,18)] #Nightime only
-        #self.df = self.df[self.df['epb'] == 1]
+        #self.df = self.df[self.df['b_ind'] != 1]
         print(self.df)
+
+        export_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/systematic/nominal/'
+        export = export_path + '20160402_p10.csv'
+
+        self.df.to_csv(export, index=False, header = True)
+        print('data exported')
 
     def plotNoStdDev(self):
         

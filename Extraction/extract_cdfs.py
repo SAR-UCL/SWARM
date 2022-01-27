@@ -15,13 +15,13 @@ from pathlib import Path
 import os
 from datetime import date
 
-dir_suffix = 'test'
+dir_suffix = 'April-16'
 
 IBI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/'+dir_suffix)
 LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/'+dir_suffix)
 EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/'+dir_suffix)
-#path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/test/'
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/test/'
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/April-16/'
+#path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/test/'
 
 #Output names
 IBI_output = path + 'IBI-data_'+dir_suffix+'.h5'
@@ -261,9 +261,9 @@ def openEFI(dire):
 
 ##Load open functions
 #IBI_data = openIBI(IBI_dir)
-LP_data = openLP(LP_dir)
+#LP_data = openLP(LP_dir)
 #EFI_data = openEFI(EFI_dir)
-print(LP_data)
+#print(LP_data)
 #print(IBI_data, LP_data, EFI_data)
 
 def mergeCDF(IBI, LP, EFI):
@@ -314,7 +314,7 @@ def mergeCDF(IBI, LP, EFI):
     #print(to_csv)
     print('Joined dataframes exported')
     
-#merged_cdf = mergeCDF(IBI_output, LP_output, EFI_output)
+merged_cdf = mergeCDF(IBI_output, LP_output, EFI_output)
 
 #df = pd.read_csv(joined_output)
 #print(df)
