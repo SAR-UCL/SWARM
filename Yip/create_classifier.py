@@ -3,17 +3,33 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
 import numpy as np
-pd.set_option('display.max_rows', None) #or 10 or None
+pd.set_option('display.max_rows', 10) #or 10 or None
 
 
 path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/systematic/train_set/'
 load_data = path + 'train_set.csv'
 df = pd.read_csv(load_data)
 
-test_id = 1
+test_id = 3
 df = df[df['id']==test_id]
 #print(df)
 
+def covar_corr(df):
+    df['ne_pot_corr'] = df['Ne'].rolling(window=10).corr(df['Ti'])
+    df['ne_pot_covar'] = df['Ne'].rolling(window=10).cov(df['Ti'])
+
+
+    def covar_check(covar):
+        if covar > 7e5:
+            return 1
+        else:
+            return 0
+
+    df['covar_epb'] = df['ne_pot_covar'].apply(covar_check)
+
+    return df
+
+df = covar_corr(df)
 
 def calc_ROC_pt(df):
     #Rate of change cm/s or k/s or pot/s
@@ -109,8 +125,8 @@ def savitzky_golay(y):
     y = np.concatenate((firstvals, y, lastvals))
     return np.convolve( m[::-1], y, mode='valid')
 
-print(df)
-df['func_score'] = df.apply(lambda x: savitzky_golay(x['Ne']), axis=1)
+#print(df)
+#df['func_score'] = df.apply(lambda x: savitzky_golay(x['Ne']), axis=1)
 
 
 def ne_pot_combine(ne, pot):
@@ -136,17 +152,17 @@ def check_function(x,y):
         return 0 
 
 df['func_score'] = df.apply(lambda x: check_function(x['epb_gt'], 
-         x['std_pot']), axis=1)
+         x['covar_epb']), axis=1)
 
 scores = df.groupby('func_score').size()
-print(scores)
+#print(scores)
 
 if test_id == 2 or test_id == 6 or test_id == 7 or test_id == 3:
+#if test_id == 10:
     print('Scores',scores)
     precision = 0 / (1 + 0)
     recall = 0 / (0 + scores.iloc[0])
     #print(recall)
-
     
 else:
     precision = scores.iloc[3] / (scores.iloc[3] + scores.iloc[1])
@@ -172,23 +188,23 @@ def plotNoStdDev(df):
         x = 'lat'
         hue = 's_id'
 
-        ax0y = 'epb_gt'
+        ax0y = 'Ne'
         sns.lineplot(ax = axs[0], data = df, x = x, y =ax0y, 
                 palette = 'bone',hue = hue, legend=False)
 
-        ax1y = 'Ne'
+        ax1y = 'epb_gt'
         sns.lineplot(ax = axs[1], data = df, x =x, y =ax1y,
                 palette = 'Set1', hue = hue, legend=False)
 
-        ax2y = 'std_ne'
+        ax2y = 'ne_pot_covar'
         sns.lineplot(ax = axs[2], data = df, x = x, y =ax2y, 
                 palette = 'Set1', hue = hue, legend = False)
 
-        ax3y = 'pot'
+        ax3y = 'covar_epb'
         sns.lineplot(ax = axs[3], data = df, x = x, y =ax3y, 
                 palette = 'Set2', hue = hue, legend = False)
 
-        ax4y = 'std_pot'
+        ax4y = 'ne_pot_corr'
         sns.lineplot(ax = axs[4], data = df, x = x, y =ax4y, 
                 palette = 'Set2', hue = hue, legend = False)
 
@@ -219,7 +235,7 @@ def plotNoStdDev(df):
         
         axs[1].set_ylabel(f'{ax1y}')
         axs[1].tick_params(bottom = False)
-        axs[1].set_yscale('log')
+        #axs[2].set_yscale('log')
         
         axs[2].set_ylabel(f'{ax2y}')
         axs[2].tick_params(bottom = False)
@@ -238,4 +254,4 @@ def plotNoStdDev(df):
         plt.tight_layout()
         plt.show()
 
-#plotNoStdDev(df)
+plotNoStdDev(df)

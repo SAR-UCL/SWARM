@@ -27,7 +27,7 @@ LP_output = path + 'LP-data_decadal.h5'
 EFI_output = path + 'EFI-data_decadal.h5'
 
 today =  str(date.today())
-joined_output = path + 'orbyts-multi-year-2-'+ today +'.csv'
+joined_output = path + 'orbyts-data-'+ today +'.csv'
 
 
 def openIBI(dire):
@@ -279,20 +279,20 @@ def mergeCDF(IBI, LP, EFI):
         #        'b_ind','b_prob','Ne','Ne_std','Ti','Ti_std','pot','pot_std',
         #        'Te','Te_std']]
 
-        joined_cdf = joined_cdf[['date','utc','mlt','lat','long','Ne','Te']]
+        joined_cdf = joined_cdf[['date','utc','mlt','lat','long','alt','Ne','Te','Ti']]
 
         temp_df = joined_cdf["date"].str.split("-", n = 2, expand = True)
         joined_cdf["year"] = temp_df [0]
         joined_cdf["month"] = temp_df [1]
-        joined_cdf = joined_cdf[::60]
+        joined_cdf = joined_cdf[::45]
         joined_cdf = joined_cdf.reset_index().drop(columns=['index'])
-
+        joined_cdf['alt'] = (joined_cdf['alt'] / 1000 ) - 6371
         #print('Joined dataframe\n',joined_cdf)
     
     except RuntimeError:
         raise Exception('Problems joining dataframes')
 
-    print(joined_cdf)
+    #print(joined_cdf)
 
     #joined_cdf.to_hdf(joined_output, key = 'efi_data', mode = 'w')
     joined_cdf.to_csv(joined_output, index=False, header = True)
@@ -303,7 +303,7 @@ def mergeCDF(IBI, LP, EFI):
 #merged_cdf = mergeCDF(IBI_output, LP_output, EFI_output)
 
 df = pd.read_csv(joined_output)
-#print(df)
+print(df)
 #df = df[::60]
 
 def heatmap():
@@ -322,9 +322,9 @@ def heatmap():
         
 def daynight(x):
     if 6 > x < 18:
-        return 'daytime'
+        return 'dayside'
     else:
-        return 'nightime'   
+        return 'nightside'   
     
 def latitudes(x):
     if 60 <= x <= 90:
@@ -354,17 +354,20 @@ def seasons(x):
     else:
         return 'winter'   
 
-#df['time'] = df['mlt'].apply(daynight)
-#df['latitudes'] = df['lat'].apply(latitudes)
+df['time'] = df['mlt'].apply(daynight)
+df['latitudes'] = df['lat'].apply(latitudes)
 
-#df = df.loc[df['Te'] <= 5000]
-#df = df.loc[df['Te'] > 0]
+df = df.loc[df['Te'] <= 5000]
+df = df.loc[df['Te'] > 0]
+
+df = df.loc[df['Ti'] <= 5000]
+df = df.loc[df['Ti'] > 0]
 
 #df['seasons'] = df['month'].apply(seasons)
 
-heatmap()
+#heatmap()
 
 
-# df.to_csv(joined_output, index=False, header = True)
+df.to_csv(joined_output, index=False, header = True)
 
-#print(df)
+print(df)

@@ -102,8 +102,6 @@ class RF_classifer():
         model = model.fit(X_train, y_train)
         model.n_features_
 
-
-
         with open(model_pathfile, 'wb') as file:
             pickle.dump(model, file)
 
