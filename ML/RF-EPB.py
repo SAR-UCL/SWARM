@@ -141,6 +141,9 @@ class RF_classifer():
                 index = feature_labs).round(2).sort_values(ascending=False)
         print('Feature Importance:\n', feature_imp)
 
+        #Feature importance using SHAP values
+        #https://towardsdatascience.com/explain-your-model-with-the-shap-values-bc36aac4de3d
+
     def plot_rf(self, feature_labs):
         
         #from sklearn import metrics

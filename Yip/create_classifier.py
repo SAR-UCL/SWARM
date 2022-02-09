@@ -10,9 +10,76 @@ path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/S
 load_data = path + 'train_set.csv'
 df = pd.read_csv(load_data)
 
-test_id = 3
+df = df[['date','utc','mlt','lat','long','s_id','pass','Ne','Ti','pot','id','epb_gt']]
+
+test_id =  4
 df = df[df['id']==test_id]
+print(df)
+
+'''
+figs, axs = plt.subplots(ncols=1, nrows=2, figsize=(8,5), 
+dpi=90, sharex=True) #3.5 for single, #5.5 for double
+axs = axs.flatten()
+
+x = 'lat'
+hue = 's_id'
+
+ax0y = 'Ne'
+sns.lineplot(ax = axs[0], data = df, x = x, y =ax0y, 
+        palette = 'bone',hue = hue, legend=False)
+
+ax1y = 'epb_gt'
+sns.lineplot(ax = axs[1], data = df, x = x, y =ax1y, 
+        palette = 'bone',hue = hue, legend=False)
+
+ax = plt.gca()
+ax.invert_xaxis()
+
+plt.tight_layout()
+plt.show()
+
+# print(df)
+
+test_id =  9
+df = df[df['id']==test_id]
+print(df)'''
+
+def high_pass_filter(df):
+    df ['Ne_filtered'] = df['Ne'] / 1e5
+    return df
+    #None
+#df = high_pass_filter(df)
 #print(df)
+
+
+def savitzky_golay(df):
+
+    from scipy.signal import savgol_filter
+    
+    df['Ne_savgol'] = savgol_filter(df['Ne'], 51, 4) #Ne do not change
+    df['residuals'] = df['Ne'] - df['Ne_savgol']
+
+
+    #calc ROC
+    pc_df = df[['Ne_savgol']].pct_change(periods=1) #change in seconds
+    pc_df = pc_df.rename(columns = {"Ne_savgol":"resid_c"}) 
+    df = pd.concat([df, pc_df], axis=1)
+
+
+    #Std dev
+    std_df = df[['resid_c']].rolling(5).std()
+    #std_df = df[['Ne_c','pot_c']].rolling(20, win_type='gaussian').sum(std=3)
+    std_df = std_df.rename(columns = {"resid_c":"resid_std"}) 
+    df = pd.concat([df,std_df], axis = 1)
+
+    #df['Ne_savgol'] = savgol_filter(df['pot'], 51, 6)
+    
+    return df
+
+df = savitzky_golay(df)
+#print(df)
+
+#df['residuals'] = df['Ne'] - df['Ne_savgol']
 
 def covar_corr(df):
     df['ne_pot_corr'] = df['Ne'].rolling(window=10).corr(df['Ti'])
@@ -29,7 +96,7 @@ def covar_corr(df):
 
     return df
 
-df = covar_corr(df)
+#df = covar_corr(df)
 
 def calc_ROC_pt(df):
     #Rate of change cm/s or k/s or pot/s
@@ -40,7 +107,6 @@ def calc_ROC_pt(df):
     df = df.dropna()
 
     return df
-
 
 def stddev_window(df):
 
@@ -71,17 +137,23 @@ def stddev_window(df):
         else:
             return 0
 
+    def stddev_sg(x):
+        if x > 0.1:
+            return 1
+        else:
+            return 0
+
 
     df['std_ne'] = df['Ne_std'].apply(stddev_ne)
     df['std_pot'] = df['pot_std'].apply(stddev_pot)
     df['std_ti'] = df['Ti_std'].apply(stddev_ti)
+    df['std_savgol'] = df['sg_std'].apply(stddev_sg)
 
     df = df.dropna()
 
     return df
 
-df = stddev_window(df)
-
+#df = stddev_window(df)
 
 def gauss_window(df):
 
@@ -107,27 +179,32 @@ def gauss_window(df):
 
 #df = gauss_window(df)
 
+#df['residuals'] = df['pot'] - df['Ne_savgol']
+
+def sovgal_epb(x):
+    if x > 11000 or x < -11000:
+    #if x > 600000:
+    #if x > 0.01 or x < -0.01:
+        return 1
+    else:
+         return 0
 
 
-def savitzky_golay(y):
-    from math import factorial
-    window_size = np.abs(np.int(10))
-    order = np.abs(np.int(10))
-    order_range = range(3+1)
-    half_window = (window_size -1) // 2
-    # precompute coefficients
-    b = np.mat([[k**i for i in order_range] for k in range(-half_window, half_window+1)])
-    m = np.linalg.pinv(b).A[0] * 1**0 * factorial(0)
-    # pad the signal at the extremes with
-    # values taken from the signal itself
-    firstvals = y[0] - np.abs( y[1:half_window+1][::-1] - y[0] )
-    lastvals = y[-1] + np.abs(y[-half_window-1:-1][::-1] - y[-1])
-    y = np.concatenate((firstvals, y, lastvals))
-    return np.convolve( m[::-1], y, mode='valid')
+df['sovgal_epb'] = df.apply(lambda x: sovgal_epb(x['residuals']), axis=1)
+
+print(df)
+
+
+
+# plt.figure(1)
+# plt.plot(df['lat'], df['Ne'], label="Ne")
+# plt.plot(df['lat'], df['Ne_savgol'], label="Ne SavGol")
+# plt.legend()
+# plt.show()
+
 
 #print(df)
 #df['func_score'] = df.apply(lambda x: savitzky_golay(x['Ne']), axis=1)
-
 
 def ne_pot_combine(ne, pot):
     if ne and pot == 1:
@@ -152,12 +229,15 @@ def check_function(x,y):
         return 0 
 
 df['func_score'] = df.apply(lambda x: check_function(x['epb_gt'], 
-         x['covar_epb']), axis=1)
+         x['sovgal_epb']), axis=1)
+
+#df['func_score'] = df.apply(lambda x: check_function(x['epb_gt'], 
+#         x['covar_epb']), axis=1)
 
 scores = df.groupby('func_score').size()
 #print(scores)
 
-if test_id == 2 or test_id == 6 or test_id == 7 or test_id == 3:
+if test_id == 2 or test_id == 6 or test_id == 7 or test_id == 6:
 #if test_id == 10:
     print('Scores',scores)
     precision = 0 / (1 + 0)
@@ -177,7 +257,7 @@ else:
     print ('Recall:', recall)
     print('F1:',f1)
 
-print(df)
+#print(df)
 
 def plotNoStdDev(df):
         
@@ -196,15 +276,15 @@ def plotNoStdDev(df):
         sns.lineplot(ax = axs[1], data = df, x =x, y =ax1y,
                 palette = 'Set1', hue = hue, legend=False)
 
-        ax2y = 'ne_pot_covar'
-        sns.lineplot(ax = axs[2], data = df, x = x, y =ax2y, 
+        ax2y = 'Ne_savgol'
+        sns.lineplot(ax = axs[0], data = df, x = x, y =ax2y, 
                 palette = 'Set1', hue = hue, legend = False)
 
-        ax3y = 'covar_epb'
-        sns.lineplot(ax = axs[3], data = df, x = x, y =ax3y, 
+        ax3y = 'sovgal_epb'
+        sns.lineplot(ax = axs[2], data = df, x = x, y =ax3y, 
                 palette = 'Set2', hue = hue, legend = False)
 
-        ax4y = 'ne_pot_corr'
+        ax4y = 'residuals'
         sns.lineplot(ax = axs[4], data = df, x = x, y =ax4y, 
                 palette = 'Set2', hue = hue, legend = False)
 
