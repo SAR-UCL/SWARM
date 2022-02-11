@@ -236,6 +236,8 @@ def openEFI(dire):
         print ('EFI data exported.')
         return efi_data #concat enables multiple .cdf files to be to one df
 
+def openMAG(dire)
+
 ##Load open functions
 #IBI_data = openIBI(IBI_dir)
 #EFI_data = openEFI(EFI_dir)

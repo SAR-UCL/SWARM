@@ -8,7 +8,8 @@ import seaborn as sns
 from datetime import date
 
 #Load exported .hdf files
-hdf_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/April-16/'
+#hdf_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/April-16/'
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Feb-22/data/april-mag/'
 #hdf_path = r'/Users/sr2
 # 
 # 
@@ -42,34 +43,18 @@ def pass_count(df):
 class WrangleData():
     
     def __init__(self, pathfile, select_date=None):
-        df = pd.read_hdf(pathfile)
+        df = pd.read_csv(pathfile)
         self.df = df if select_date is None else df[df['date'] == select_date]
 
     @classmethod  # method that can be called before obj is created
-    def frompath(cls, hdf_path, select_date=None):
+    def frompath(cls, path, select_date=None):
         today =  str(date.today())
         #file_name = 'joined-data_2022-01-13'+ today +'.h5'
-        file_name = 'joined-data-2022-01-13.h5'
-        return cls(hdf_path+file_name, select_date)
+        file_name = 'April-16-data-'+today+'.csv'
+        return cls(path+file_name, select_date)
 
 
     def transform_EPB(self, sat, s_time, e_time, s_lat, e_lat):
-
-        def pass_count(df):
-                ml = []
-                start = 0
-                for i in range(len(df.index)):
-                        if i % 2700 == 0:
-                                start +=1
-                        else:
-                                pass
-                        ml.append(start)
-                return ml
-
-        counter = pass_count(self.df)
-        self.df['pass'] = counter
-
-        
 
         #Filter the data
         #self.df = self.df[self.df['b_ind']!= -1] #remove non-useful data
@@ -79,6 +64,9 @@ class WrangleData():
         self.df = self.df[self.df['utc'].between(s_time, e_time)]
         self.df = self.df[self.df['lat'].between(s_lat,e_lat)] #EPB region 
 
+        #self.df['b_sum'] = np.sqrt(self.df['nec_x']**2 + self.df['nec_y']**2 + self.df['nec_z']**2)
+        self.df['b_mu'] = self.df['f'] / (np.sqrt(self.df['nec_x']**2 + self.df['nec_y']**2 + self.df['nec_z']**2))
+        
         def new_classifier(df):
 
                 def classify_EPB(ne_std, b_ind, ti_std, pot_std):
@@ -118,7 +106,7 @@ class WrangleData():
 
                 return df
         
-        df = new_classifier(self.df)
+        #df = new_classifier(self.df)
         #return df
 
  
@@ -164,8 +152,8 @@ class WrangleData():
         return df
     
 # select_date = None
-select_date = '2016-04-02'
-w = WrangleData.frompath(hdf_path, select_date)
+select_date = '2016-04-01'
+w = WrangleData.frompath(path, select_date)
 
 sat = 'A'
 #sat = None
@@ -173,10 +161,10 @@ sat = 'A'
 #start_lat, end_lat = -90, 90
 start_lat, end_lat = -90, 90
 #epb_only = False
-start_time, end_time = '00:00:00','23:59:59'
+start_time, end_time = '23:42:37','23:55:36'
 cleaned_df = w.transform_EPB(sat, start_time, end_time, start_lat, end_lat)
 
-#print('Outside Class\n', cleaned_df)
+print('Outside Class\n', cleaned_df)
 #print(cleaned_df['epb'].value_counts(sort=True))
 #print(cleaned_df['b_ind'].value_counts(sort=True))
 
@@ -192,8 +180,8 @@ class PlotEPB():
 
     def __init__(self, df):
         self.df = df
-        self.pass_num = 10
-        self.df = self.df[self.df['pass'] == self.pass_num]
+        self.p_num = 10
+        #self.df = self.df[self.df['pass'] == self.p_num]
         #self.df = self.df[self.df['utc'].between('21:30:00','21:45:59')]
         self.df = self.df[self.df['lat'].between(-15,15)]
         #self.df = self.df[self.df['b_ind']!= -1] #remove non-useful data
@@ -202,11 +190,10 @@ class PlotEPB():
         #self.df = self.df[self.df['b_ind'] != 1]
         print(self.df)
 
-        export_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/systematic/nominal/'
-        export = export_path + '20160402_p10.csv'
-
-        self.df.to_csv(export, index=False, header = True)
-        print('data exported')
+        #export_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/systematic/nominal/'
+        #export = export_path + '20160402_p10.csv'
+        #self.df.to_csv(export, index=False, header = True)
+        #print('data exported')
 
     def plotNoStdDev(self):
         
@@ -222,24 +209,24 @@ class PlotEPB():
         sns.lineplot(ax = axs[0], data = self.df, x = x, y ='b_ind', 
                 palette = 'bone',hue = hue, legend=False)
 
-        sns.lineplot(ax = axs[1], data = self.df, x =x, y ='epb',
+        sns.lineplot(ax = axs[1], data = self.df, x =x, y ='Ne',
                 palette = 'bone', hue = hue, legend=False)
 
-        sns.lineplot(ax = axs[2], data = self.df, x = x, y ='Ne', 
+        sns.lineplot(ax = axs[2], data = self.df, x = x, y ='b_mu', 
                 #marker = 'o', linestyle='', err_style='bars', 
                 palette = palette_ne, hue = hue, legend = False)
 
-        sns.lineplot(ax = axs[3], data = self.df, x = x, y ='Ti', 
+        sns.lineplot(ax = axs[3], data = self.df, x = x, y ='nec_x', 
                 palette = palette_ti, hue = hue, legend = False)
 
-        sns.lineplot(ax = axs[4], data = self.df, x = x, y ='pot', 
+        sns.lineplot(ax = axs[4], data = self.df, x = x, y ='nec_y', 
                 palette = palette_pot, hue = hue, legend = False)
         
-        sns.lineplot(ax = axs[5], data = self.df, x = x, y ='utc', 
+        sns.lineplot(ax = axs[5], data = self.df, x = x, y ='nec_z', 
                 palette = 'Dark2', hue = hue, legend = False)
         
         ax6 = axs[5].twinx()
-        sns.lineplot(ax = ax6, data = self.df, x = x, y ='mlt', 
+        sns.lineplot(ax = ax6, data = self.df, x = x, y ='nec_z', 
                 palette = 'tab20b', hue = hue, legend = False)
 
         date_s = self.df['date'].iloc[0]
@@ -256,7 +243,7 @@ class PlotEPB():
         #print(epb_len)
         #axs[0].set_title(f'Equatorial Plasma Bubble: from {date_s} at {utc_s} to {date_e} at {utc_e}', fontsize = 11)
 
-        epb_check = self.df['epb'].sum()
+        epb_check = self.df['b_ind'].sum()
         if epb_check > 0:
             title = 'Equatorial Plasma Bubble'
         else:
@@ -265,7 +252,7 @@ class PlotEPB():
 
         axs[0].set_title(f'{title}: from {date_s} at {utc_s} ' 
                 f'to {date_e} at {utc_e}. Spacecraft: {sat}, Pass: '
-                f'{self.pass_num}', fontsize = 11)
+                f'{self.p_num}', fontsize = 11)
         axs[0].set_ylabel('EPB \n (SWARM)')
         #axs[0].set_ylim(0, 1)
         axs[0].tick_params(bottom = False)
@@ -277,11 +264,12 @@ class PlotEPB():
         #left, bottom, width, height = (1, 0, 14, 7)
         #axs[4].add_patch(Rectangle((left, bottom),width, height, alpha=1, facecolor='none'))
 
+        '''
         axs[2].set_yscale('log')
         den = r'cm$^{-3}$'
         axs[2].set_ylabel(f'Ne ({den})')
         axs[2].tick_params(bottom = False)
-
+        
 
         axs[3].set_ylabel('Ti (K)')
         axs[3].tick_params(bottom = False)
@@ -297,7 +285,7 @@ class PlotEPB():
         ax6.set_ylabel('MLT')
         n = len(self.df) // 3.5
         [l.set_visible(False) for (i,l) in 
-                enumerate(axs[5].yaxis.get_ticklabels()) if i % n != 0]
+                enumerate(axs[5].yaxis.get_ticklabels()) if i % n != 0]'''
 
 
         ax = plt.gca()

@@ -6,14 +6,23 @@ import numpy as np
 pd.set_option('display.max_rows', 10) #or 10 or None
 
 
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/systematic/train_set/'
-load_data = path + 'train_set.csv'
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/systematic/test_set/'
+load_data = path + 'test_set.csv'
 df = pd.read_csv(load_data)
 
-df = df[['date','utc','mlt','lat','long','s_id','pass','Ne','Ti','pot','id','epb_gt']]
+#df = df[['date','utc','mlt','lat','long','s_id','pass','Ne','Ti','pot','id','epb_gt']]
 
-test_id =  4
+test_id =  10
 df = df[df['id']==test_id]
+#print(df)
+
+from sklearn.preprocessing import StandardScaler
+x_data = df[['Ne','pot']]
+scaler = StandardScaler()
+scaler.fit(x_data) #compute mean for removal and std
+x_data = scaler.transform(x_data)
+ne_scale = [a[0] for a in x_data]
+df['Ne_scale'] = ne_scale
 print(df)
 
 '''
@@ -26,7 +35,7 @@ hue = 's_id'
 
 ax0y = 'Ne'
 sns.lineplot(ax = axs[0], data = df, x = x, y =ax0y, 
-        palette = 'bone',hue = hue, legend=False)
+        palette = 'bone, hue = hue, legend=False)
 
 ax1y = 'epb_gt'
 sns.lineplot(ax = axs[1], data = df, x = x, y =ax1y, 
@@ -51,35 +60,30 @@ def high_pass_filter(df):
 #df = high_pass_filter(df)
 #print(df)
 
-
 def savitzky_golay(df):
 
     from scipy.signal import savgol_filter
     
-    df['Ne_savgol'] = savgol_filter(df['Ne'], 51, 4) #Ne do not change
-    df['residuals'] = df['Ne'] - df['Ne_savgol']
+    df['Ne_savgol'] = savgol_filter(df['Ne_scale'], window_length=23,
+        polyorder = 2) #Ne do not change
+    df['Ti_savgol'] = savgol_filter(df['Ti'], 51, 4)
+    df['pot_savgol'] = savgol_filter(df['pot'], 51, 4)
 
+    df['Ne_resid'] = df['Ne_scale'] - df['Ne_savgol']
+    df['Ti_resid'] = df['Ti'] - df['Ti_savgol']
+    df['pot_resid'] = df['pot'] - df['pot_savgol']
 
-    #calc ROC
-    pc_df = df[['Ne_savgol']].pct_change(periods=1) #change in seconds
-    pc_df = pc_df.rename(columns = {"Ne_savgol":"resid_c"}) 
-    df = pd.concat([df, pc_df], axis=1)
+    df['ne_ti_corr'] = df['Ne_resid'].rolling(window=10).corr(df['Ti_resid'])
 
+    df = df.dropna()
 
-    #Std dev
-    std_df = df[['resid_c']].rolling(5).std()
-    #std_df = df[['Ne_c','pot_c']].rolling(20, win_type='gaussian').sum(std=3)
-    std_df = std_df.rename(columns = {"resid_c":"resid_std"}) 
-    df = pd.concat([df,std_df], axis = 1)
-
-    #df['Ne_savgol'] = savgol_filter(df['pot'], 51, 6)
     
     return df
 
 df = savitzky_golay(df)
 #print(df)
 
-#df['residuals'] = df['Ne'] - df['Ne_savgol']
+#df['Ne_resid'] = df['Ne'] - df['Ne_savgol']
 
 def covar_corr(df):
     df['ne_pot_corr'] = df['Ne'].rolling(window=10).corr(df['Ti'])
@@ -107,6 +111,8 @@ def calc_ROC_pt(df):
     df = df.dropna()
 
     return df
+
+#df = calc_ROC_pt(df)
 
 def stddev_window(df):
 
@@ -178,19 +184,30 @@ def gauss_window(df):
     return df
 
 #df = gauss_window(df)
+#df['Ne_resid'] = df['pot'] - df['Ne_savgol']
 
-#df['residuals'] = df['pot'] - df['Ne_savgol']
-
-def sovgal_epb(x):
-    if x > 11000 or x < -11000:
-    #if x > 600000:
-    #if x > 0.01 or x < -0.01:
+def sovgol_epb(x):
+    #if x > 10000 or x < -10000:
+    if x > 0.05 or x < -0.05:
         return 1
     else:
          return 0
 
+def sovgol_epb_ti(x):
+    if x > 10 or x < -10:
+        return 1
+    else:
+        return 0
 
-df['sovgal_epb'] = df.apply(lambda x: sovgal_epb(x['residuals']), axis=1)
+def sovgol_epb_pot(x):
+    if x > 0.05 or x < -0.05:
+        return 1
+    else:
+        return 0
+
+df['sovgol_epb'] = df.apply(lambda x: sovgol_epb(x['Ne_resid']), axis=1)
+df['sovgal_epb_ti'] = df.apply(lambda x: sovgol_epb_ti(x['Ti_resid']), axis=1)
+df['sovgal_epb_pot'] = df.apply(lambda x: sovgol_epb_pot(x['pot_resid']), axis=1)
 
 print(df)
 
@@ -229,7 +246,7 @@ def check_function(x,y):
         return 0 
 
 df['func_score'] = df.apply(lambda x: check_function(x['epb_gt'], 
-         x['sovgal_epb']), axis=1)
+         x['sovgol_epb']), axis=1)
 
 #df['func_score'] = df.apply(lambda x: check_function(x['epb_gt'], 
 #         x['covar_epb']), axis=1)
@@ -272,21 +289,25 @@ def plotNoStdDev(df):
         sns.lineplot(ax = axs[0], data = df, x = x, y =ax0y, 
                 palette = 'bone',hue = hue, legend=False)
 
-        ax1y = 'epb_gt'
+        ax1y = 'Ne_savgol'
         sns.lineplot(ax = axs[1], data = df, x =x, y =ax1y,
                 palette = 'Set1', hue = hue, legend=False)
 
-        ax2y = 'Ne_savgol'
-        sns.lineplot(ax = axs[0], data = df, x = x, y =ax2y, 
-                palette = 'Set1', hue = hue, legend = False)
+        ax2y = 'Ne_scale'
+        sns.lineplot(ax = axs[1], data = df, x = x, y =ax2y, 
+                palette = 'bone', hue = hue, legend = False)
 
-        ax3y = 'sovgal_epb'
+        ax3y = 'Ne_resid'
         sns.lineplot(ax = axs[2], data = df, x = x, y =ax3y, 
                 palette = 'Set2', hue = hue, legend = False)
 
-        ax4y = 'residuals'
+        ax4y = 'epb_gt'
+        sns.lineplot(ax = axs[3], data = df, x = x, y =ax4y, 
+                palette = 'rocket', hue = hue, legend = False)
+
+        ax4y = 'sovgol_epb'
         sns.lineplot(ax = axs[4], data = df, x = x, y =ax4y, 
-                palette = 'Set2', hue = hue, legend = False)
+                palette = 'rocket', hue = hue, legend = False)
 
         #axs3 = axs[2].twinx()
         #sns.lineplot(ax = axs3, data = df, x = x, y ='epb_gt', 
@@ -303,15 +324,16 @@ def plotNoStdDev(df):
         epb_len = (lat_s - lat_e) * 110
         epb_len = "{:.0f}".format(epb_len)
         
-        title = 'EPB Classifier testing. EPB: '
+        title = 'EPB Classifier testing. Sample:'
 
-        axs[0].set_title(f'{title}: from {date_s} at {utc_s} to {date_e} at {utc_e}'
+        axs[0].set_title(f'{title} {date_s} at {utc_s} to {date_e} at {utc_e}'
                #f'\n Precision: {precision}, Recall: {recall}, F1: {f1}' 
                 ,fontsize = 11)
 
         den = r'cm$^{-3}$'
         axs[0].set_ylabel(f'{ax0y}')
         axs[0].tick_params(bottom = False)
+        axs[0].set_yscale('log')
         
         axs[1].set_ylabel(f'{ax1y}')
         axs[1].tick_params(bottom = False)

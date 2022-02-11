@@ -5,119 +5,23 @@ from pathlib import Path
 import os
 from datetime import date
 
-dir_suffix = 'test'
+dir_suffix = 'April-16'
 
 IBI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/'+dir_suffix)
 LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/'+dir_suffix)
 EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/'+dir_suffix)
-#path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/test/'
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/test/'
+MAG_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/MAG/'+dir_suffix)
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Feb-22/data/april-mag/'
 
 #Output names
 IBI_output = path + 'IBI-data_'+dir_suffix+'.h5'
 LP_output = path + 'LP-data_'+dir_suffix+'.h5'
 EFI_output = path + 'EFI-data_'+dir_suffix+'.h5'
+MAG_output = path + 'MAG-data_'+dir_suffix+'.h5'
 
 today =  str(date.today())
-joined_output = path + 'test-data-'+ today +'.csv'
-joined_output_2 = path + 'test-single-pass-'+ today +'.csv'
-
-class extractCDF():
-
-    def convert2Datetime(self, utc):
-        utc = cdflib.epochs.CDFepoch.to_datetime(utc)
-        return utc
-
-    def pass_count(self, df):
-        ml = []
-        start = 0
-        for i in range(len(df.index)):
-                if i % 2700 == 0:
-                        start +=1
-                else:
-                        pass
-                ml.append(start)
-        return ml
-
-    def extractLP(self, dire):
-
-        def get_vars():
-            #cdf_array=[]
-            cdf_files = dire.glob('**/*.cdf')
-
-            #for f in cdf_files:
-            #cdf = cdflib.CDF(f)
-
-            cdf = cdflib.CDF(cdf_files)
-
-            sat_id = str(f)
-            sat_id = sat_id[-72:-71]
-
-            utc = cdf.varget("Timestamp")
-            alt = cdf.varget("Radius")
-
-            Te = cdf.varget("Te")
-            Ne = cdf.varget("Ne")
-            Vs = cdf.varget("Vs")
-            
-            #Flags
-            #info https://earth.esa.int/eogateway/documents/20142/37627/swarm-level-1b-plasma-processor-algorithm.pdf
-            LP_flag = cdf.varget("Flags_LP")
-            Te_flag = cdf.varget("Flags_Te")
-            ne_flag = cdf.varget("Flags_Ne")
-            Vs_flag = cdf.varget("Flags_Vs")
-
-            cdf_df = pd.DataFrame({"datetime":utc, "alt":alt, "Ne":Ne, "Te":Te, 
-                "pot":Vs,"LP_f":LP_flag,"Te_f":Te_flag, "Ne_f":ne_flag,
-                "pot_f":Vs_flag,"s_id":sat_id})
-            cdf_array.append(cdf_df)
-            lp_data = pd.concat(cdf_array)
-
-            return lp_data
-
-        def calc_mini_ROC(df):
-            #Rate of change cm/s or k/s or pot/s
-            pc_df = df[['Ne','Te','pot']].pct_change(periods=1) #change in seconds
-            pc_df = pc_df.rename(columns = {"Ne":"Ne_c", "Te":"Te_c", "pot":"pot_c"}) 
-            df = pd.concat([df, pc_df], axis=1)
-
-            #std deviation over change over x seconds
-            #How far, on average, the results are from the mean
-            std_df = df[['Ne_c','Te_c','pot_c']].rolling(10).std()
-            std_df = std_df.rename(columns = {"Ne_c":"Ne_std", "Te_c":"Te_std", "pot_c":"pot_std"}) 
-            df = pd.concat([df,std_df], axis = 1)
-
-            df = df.dropna()
-
-            return df
-
-            lp_data = calcROC(lp_data)
-
-        #Internal functions
-        lp_data = get_vars() #get variables
-        lp_data = calc_mini_ROC(lp_data) #caclulate rates of change
-
-        #class-wide function
-        #get time
-        lp_data['datetime'] = lp_data['datetime'].apply(self.convert2Datetime).str[0].astype(str)
-        counter = self.pass_count(lp_data)
-        lp_data['p_num'] = counter
-    
-        return lp_data
-
-
-# extract = extractCDF()
-
-# cdf_files = LP_dir.glob('*/*.cdf')
-# for f in cdf_files:
-#      cdf = cdflib.CDF(f)
-#      LP_data = extract.extractLP(LP_dir)
-#      print(LP_data)
-
-#LP_data = extract.extractLP(LP_dir)
-#print(LP_data)
-
-#dire = LP_dir
+joined_output = path + 'mag-data-'+ today +'.csv'
+#joined_output_2 = path + 'test-single-pass-'+ today +'.csv'
 
 class extraction():
 
@@ -304,8 +208,43 @@ class extraction():
         #cdf_df["datetime"] = cdf_df['datetime'].str.slice(stop =-4)
 
         return cdf_df
+    
+    def MAG_data(self, cdf, f):
+        #Get sat ID
+        
+        sat_id = str(f)
+        sat_id = sat_id[-61:-60]
 
-    def get_instru_data(self, ibi_dir,lp_dir, efi_dir):
+        utc = cdf.varget("Timestamp")
+
+        f = cdf.varget("F") #b-field intensity nT
+        f_err = cdf.varget("F_error")
+        b = cdf.varget("B") #Magnetic field vector, NEC frame 
+
+        #place in dataframe
+        cdf_df = pd.DataFrame({'datetime':utc, 'f':f,
+                "f_err":f_err})
+
+        cdf_df['datetime'] = cdf_df['datetime'].apply(self.convert2Datetime).str[0].astype(str)
+        cdf_df["datetime"] = cdf_df['datetime'].str.slice(stop =-4)
+
+        #cdf_df = pd.DataFrame({"b":[b]})
+
+        return cdf_df
+
+    '''
+    def get_mag_data(self, mag_dir):
+        #Electric Field Instrument, l2 product
+        mag_arr = []
+        mag_files = mag_dir.glob('**/*.cdf')
+        for k in mag_files:
+                cdf_mag = cdflib.CDF(k)
+                mag_arr.append(self.MAG_data(cdf_mag, k))
+                mag_data = pd.concat(mag_arr)
+        
+        return mag_data'''
+
+    def get_instru_data(self, ibi_dir,lp_dir, efi_dir, mag_dir):
         
         #ionospheric bubble index, l2 product
         ibi_arr = []
@@ -327,15 +266,27 @@ class extraction():
                 for k in efi_files:
                     cdf_efi = cdflib.CDF(k)
                     efi_arr.append(self.EFI_data(cdf_efi, k))
+
+                    #Magnetometer data, l1 product
+                    mag_arr = []
+                    mag_files = mag_dir.glob('**/*.cdf')
+                    for k in mag_files:
+                        cdf_mag = cdflib.CDF(k)
+                        mag_arr.append(self.MAG_data(cdf_mag, k))
+                        mag_data = pd.concat(mag_arr)
+
                     efi_data = pd.concat(efi_arr)
                 
                 lp_data = pd.concat(lp_arr)
             
             ibi_data = pd.concat(ibi_arr)
 
-            merge = lp_data.merge(efi_data, on = ['s_id', 'Te']).merge(ibi_data, on =['datetime','s_id'])
+            merged = lp_data.merge(efi_data, on = ['s_id', 'Te']).merge(ibi_data, on =['datetime','s_id'])
+            #merge = mag_data
 
-            merge['datetime'] = merge['datetime'].apply(self.convert2Datetime).str[0].astype(str)
+            merged['datetime'] = merged['datetime'].apply(self.convert2Datetime).str[0].astype(str)
+
+            merged = merged.merge(mag_data, on = ['datetime'])
             
             def splitDatetime(df):
                 temp_df = df["datetime"].str.split(" ", n = 1, expand = True)
@@ -345,31 +296,35 @@ class extraction():
         
                 return df
         
-            merge = splitDatetime(merge)
+            merged = splitDatetime(merged)
             
             #print(merge)
 
-        #print(merge)
+        #print(merged)
+        return merged
+        #print(merged)
         #return lp_data
-        return merge
+        #return merge
+        #return mag_data
         
-
 extract = extraction()
-#multi_data = extract.get_instru_data(IBI_dir, LP_dir, EFI_dir)
-#print(multi_data)
-#to_csv = multi_data.to_csv(joined_output, index=False, header = True)
+#get_mag = extract.get_mag_data(MAG_dir)
+#print(get_mag)
+
+multi_data = extract.get_instru_data(IBI_dir, LP_dir, EFI_dir, MAG_dir)
+print(multi_data)
+multi_data.to_csv(joined_output, index=False, header = True)
 print('data exported')
 
 #######
 #Load csv
-df = pd.read_csv(joined_output)
-
+#df = pd.read_csv(joined_output)
 
 #df = df[df['b_ind'] == 1]
-df = df[df['p_num'] == 2]
-df = df[df['lat'].between(-15,15)]
-df = df[df['date'] == '2014-01-15']
-df = df.sort_values(by=['utc'], ascending=True)
+#df = df[df['p_num'] == 2]
+#df = df[df['lat'].between(-15,15)]
+#df = df[df['date'] == '2014-01-15']
+#df = df.sort_values(by=['utc'], ascending=True)
 
 def gauss_check(x):
     if x <= -0.4 or x>0.4:
@@ -377,7 +332,7 @@ def gauss_check(x):
     else:
         return 0
 
-df['g_epb'] = df['Ne_std_l'].apply(gauss_check)
+#df['g_epb'] = df['Ne_std_l'].apply(gauss_check)
 
 def stddev_check(x):
     if x > 0.2:
@@ -385,7 +340,7 @@ def stddev_check(x):
     else:
         return 0
 
-df['stdev_epb_1'] = df['Ne_std_l'].apply(stddev_check)
+#df['stdev_epb_1'] = df['Ne_std_l'].apply(stddev_check)
 
 def stddev_check_2(x):
     if x > 0.1:
@@ -393,7 +348,7 @@ def stddev_check_2(x):
     else:
         return 0
 
-df['stdev_epb_2'] = df['Ne_std_l'].apply(stddev_check_2)
+#df['stdev_epb_2'] = df['Ne_std_l'].apply(stddev_check_2)
 
 def gauss_stddev(x, y):
         if x or y == 1:
@@ -401,16 +356,16 @@ def gauss_stddev(x, y):
         else:
                 return 0 
 
-df['gau-dev'] = df.apply(lambda x: gauss_stddev(x.g_epb, x.stdev_epb_1), axis=1)
+#df['gau-dev'] = df.apply(lambda x: gauss_stddev(x.g_epb, x.stdev_epb_1), axis=1)
 
-print(df)
+#print(df)
 
 #df.to_csv(joined_output_2, index=False, header = True)
 #print('data exported')
 
-from matplotlib import pyplot as plt
-import seaborn as sns
-import numpy as np
+#from matplotlib import pyplot as plt
+#import seaborn as sns
+#import numpy as np
 
 
 def plotNoStdDev(df):
@@ -525,4 +480,4 @@ def plotNoStdDev(df):
         plt.tight_layout()
         plt.show()
 
-plotNoStdDev(df)
+#plotNoStdDev(df)

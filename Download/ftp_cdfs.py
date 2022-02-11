@@ -14,9 +14,9 @@ import zipfile
 import patoolib
 
 SATE = ['A'] #select spacecraft
-YEAR = [2013] #select years
-MONTH = [1,2,3,4,5,6,7,8,9,10,11,12]
-DAYS = 1 #how many days of data needed. Do not exceed 30
+YEAR = [2014, 2015] #select years
+MONTH = [2,3,9,10]
+DAYS = 28 #how many days of data needed. Do not exceed 30
 START_DAY = 1 #start the loop
 
 for SAT in SATE:
@@ -26,9 +26,11 @@ for SAT in SATE:
                 DOM = DOM + START_DAY
                 
                 #Select path for download
-                path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/orbyts'  #Density and potential
-                #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/orbyts' #Ion temp
-                #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/orbyts' #Bubbles and IPIR
+
+                #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/solar-max'  #Density and potential
+                #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/solar_max/2014' #Ion temp
+                path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/solar_max' #Bubbles and IPIR
+                #path = '/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/MAG/solar-max' #Mag data
 
                 path_initial = os.path.join(path,str(YR).zfill(4)+str(MON).zfill(2)+str(DOM).zfill(2)+str(SAT))
                 path_downloaded_data_LP=os.path.join(path_initial)
@@ -40,9 +42,10 @@ for SAT in SATE:
                         ftp.login()   # user anonymous, passwd anonymous
                         
                         #Specific the location of the instrument or product you wish you download
-                        ftp.cwd('/Level1b/Latest_baselines/EFIxLPI/Sat_'+str(sat)) #Langmuir Probe (plasma den & space pot)
+                        #ftp.cwd('/Level1b/Latest_baselines/EFIxLPI/Sat_'+str(sat)) #Langmuir Probe (plasma den & space pot)
                         #ftp.cwd('/Level2daily/Latest_baselines/EFI/TIE/Sat_'+str(sat)) #Electric field ins (ion temp)
-                        #ftp.cwd('/Level2daily/Latest_baselines/IBI/TMS/Sat_'+str(sat)) #Bubbles and iregularities
+                        ftp.cwd('/Level2daily/Latest_baselines/IBI/TMS/Sat_'+str(sat)) #Bubbles and iregularities
+                        #ftp.cwd('/Level1b/Latest_baselines/MAGx_CA/Sat_'+str(sat)) #Langmuir Probe (plasma den & space pot)
                         
                         
                         listing=[]
