@@ -23,118 +23,78 @@ def butter_highpass(low_cut, high_cut, fs, order=5):
     b, a = signal.butter(order, [low, high], btype='band')
 
     # returns the filter coefficients: numerator and denominator
-    return b, a 
+    return b, a '''
 
 
-df = pd.DataFrame({'col1': [1, 3, 10, 23, 5, 10], 'col2': [3, 4, 34, 10, 3, 4]})
-df = df.loc[:,'col1']
-df_data = np.array(df.values) 
-#print(df_data)
-
-#butter = butter_highpass(0.5, 2.5, 100)
-#print(len(butter[0]))
-#print(butter)
-
-length = 10
-
-b, a = signal.butter(4, length, 'low', analog=True)
-w, h = signal.freqs(b, a)
-
-#print(b, a)
-#print(w, h)
+#df = pd.DataFrame({'col1': [0,1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0,1,0,0,0,0,1]})
 
 
-#plt.plot(w, 20 * np.log10(abs(h)))
-plt.plot(w, h)
-#plt.plot()
-plt.xscale('log')
-plt.title('Butterworth filter frequency response')
-plt.xlabel('Frequency [radians / second]')
-plt.ylabel('Amplitude [dB]')
-plt.margins(0, 0.1)
-plt.grid(which='both', axis='both')
-plt.axvline(length, color='green') # cutoff frequency
-#plt.show()
+df = pd.DataFrame({'date': ['2015-01-01', '2015-01-02', '2015-01-02', '2015-01-02', '2015-01-02'],
+                  'p_num': [1, 2, 2, 5, 5], 'Ne':[1e6, 1e5, 1e4, 5e6, 6e6] })
 
-'''
-#
-#
-#
-#
+def demo_func(x):
+    x = x - 1e6
+    return x
 
-from scipy.signal import butter, sosfilt, sosfreqz
+#df['Ne_new'] = df.groupby('p_num')['Ne'].apply(demo_func)
 
-def butter_bandpass(lowcut, highcut, fs, order=5):
-        nyq = 0.5 * fs
-        low = lowcut / nyq
-        high = highcut / nyq
-        sos = butter(order, [low, high], analog=False, btype='band', output='sos')
-        return sos
+print(df)
 
-def butter_bandpass_filter(data, lowcut, highcut, fs, order):
-        sos = butter_bandpass(lowcut, highcut, fs, order)
-        y = sosfilt(sos, data)
-        return y
+def ibi_mssl_epb_compare(df):
 
-#data = signal.ellip(15, 0.5, 60, (0.2, 0.4), btype='bandpass', output='sos')
-#data = np.delete(data, (0), axis=0)
-#print(data)
+    df_new = df.groupby('p_num')
+    df_arr = []
+    for name, group in df_new:
+
+        from sklearn.preprocessing import StandardScaler
+        x_data = group[['Ne','p_num']]
+        scaler = StandardScaler()
+        scaler.fit(x_data) #compute mean for removal and std
+        x_data = scaler.transform(x_data)
+        ne_scale = [a[0] for a in x_data]
+        group['Ne_scale'] = ne_scale
+
+        def check_function(x,y):
+            if x == 5e1 and y == -1:
+            #if x == 1 and y == 1:
+                return 'true pos'
+            elif x == 0 and y == 0:
+                return 'true neg'
+            elif x == 1 and y == 0:
+                return 'false neg'
+            elif x == 0 and y == 1:
+                return 'false pos'
+            else:
+                return 'no match'
+
+        group['func_score'] = group.apply(lambda x: check_function(x['Ne'], 
+                x['Ne_scale']), axis=1)
+
+        score = group.groupby('func_score', as_index=False).size()
+
+        date = group['date'].iloc[0]
+        p_num = group['p_num'].iloc[0]
+        #precision = score['size']
+        precision = score.loc[score['func_score']=='no match', 'size']
 
 
-if __name__ == "__main__":
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from scipy.signal import freqz
+        
+        #precision = score['precision'].iloc[0]
+        #precision = score.loc['precision']
 
-    # Sample rate and desired cutoff frequencies (in Hz).
-    #fs must be x2 larger than highcut
-    fs = 3000
-    lowcut = 500.0
-    highcut = 1250.0
-    order = 3
+        df = pd.DataFrame({'date':[date], 'p_num':p_num,  'precision':precision})
+        df_arr.append(df)
+        df = pd.concat(df_arr)
 
-    # Plot the frequency response for a few different orders.
-    #plt.figure(1)
-    #plt.clf()
-    #sos = butter_bandpass_filter(data, lowcut, highcut, fs, order)
-    #print(sos)
-    #w, h = sosfreqz(data, worN=1500)
-    #print(h)
+        #group['prescion'] = score.iloc[0]
+        #print(precision)
+        #print(date)
 
+    #print(precision)
+    #print(score)
     
-    #plt.plot((fs * 0.5 / np.pi) * w, abs(h), label="order = %d" % order)
-    
-    '''
-    for order in [3, 6, 9]:
-        #sos = butter_bandpass(lowcut, highcut, fs, order=order)
-        sos = butter_bandpass_filter(data, lowcut, highcut, fs, order=order)
-        w, h = sosfreqz(sos, worN=2000)
-        plt.plot((fs * 0.5 / np.pi) * w, abs(h), label="order = %d" % order)'''
+    return df
+    #return group
 
-    #plt.plot([0, 0.5 * fs], [np.sqrt(0.5), np.sqrt(0.5)],
-    #         '--', label='sqrt(0.5)')
-    
-    # plt.xlabel('Frequency (Hz)')
-    # plt.ylabel('Gain')
-    # plt.grid(True)
-    # plt.legend(loc='best')
-
-    #plt.show()
-
-
-#####
-#####
-#####
-from scipy.signal import savgol_filter
-x = np.array([2, 2, 5, 2, 1, 0, 1, 4, 9])
-
-window_len = 5
-poly = 2
-
-sav = savgol_filter(x, window_len, poly)
-print(sav)
-
-plt.figure(1)
-plt.plot(x, sav, label="x and sav")
-plt.legend()
-plt.show()
+df = ibi_mssl_epb_compare(df)
+print(df)

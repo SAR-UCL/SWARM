@@ -29,6 +29,7 @@ IBI_output = path + 'IBI-data_'+dir_suffix+'.csv'
 LP_output = path + 'LP-data_'+dir_suffix+'.csv'
 EFI_output = path + 'EFI-data_'+dir_suffix+'.csv'
 MAG_output = path + 'MAG-data_'+dir_suffix+'.csv'
+EPB_output = path + 'EPB-count-data_'+dir_suffix+'.csv'
 
 today =  str(date.today())
 joined_output = path + dir_suffix + '-data-'+ today +'.csv'
@@ -370,7 +371,7 @@ extract = extraction()
 #merged_data = extract.mergeCDF(IBI_output, LP_output, EFI_output)
 #print(merged_data)
 
-#df = pd.read_csv(joined_output)
+df = pd.read_csv(joined_output)
 #print(df)
 
 def heatmap(df):
@@ -396,15 +397,18 @@ def heatmap(df):
             return 0
 
     temp_df = df["date"].str.split("-", n = 2, expand = True)
-    df["year"] = temp_df [0]
-    df["month"] = temp_df [1]
-    df["day"] = temp_df [2]
+    #df["year"] = temp_df [0]
+    #df["month"] = temp_df [1]
+    #df["day"] = temp_df [2]
     #df = df[::60]
     df = df.reset_index().drop(columns=['index'])
     df = df.sort_values(by=['date','p_num'], ascending=[True,True])
 
     df['epb'] = df['b_ind'].apply(count_epb)
-    df = df[df['b_ind']>300]
+    df = df[df['b_ind'] > 500].reset_index().drop(columns=['index'])
+
+    df.to_csv(EPB_output, index=False, header = True)
+    print('EPB Exported.')
 
     print(df)    
     
