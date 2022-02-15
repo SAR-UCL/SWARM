@@ -3,7 +3,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
 import numpy as np
-pd.set_option('display.max_rows', 10) #or 10 or None
+pd.set_option('display.max_rows', None) #or 10 or None
 
 
 path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/systematic/test_set/'
@@ -356,4 +356,4 @@ def plotNoStdDev(df):
         plt.tight_layout()
         plt.show()
 
-plotNoStdDev(df)
+#plotNoStdDev(df)

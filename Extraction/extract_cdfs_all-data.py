@@ -14,14 +14,15 @@ import glob
 from pathlib import Path
 import os
 from datetime import date
+#pd.set_option('display.max_rows', None) #or 10 or None
 
-dir_suffix = 'April-16'
+dir_suffix = '2015'
 
-IBI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/'+dir_suffix)
-LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/'+dir_suffix)
-EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/'+dir_suffix)
+IBI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/solar_max/'+dir_suffix)
+LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/solar_max/'+dir_suffix)
+EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/solar_max/'+dir_suffix)
 MAG_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/MAG/'+dir_suffix)
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Feb-22/data/april-mag/'
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Feb-22/data/solar_max/'
 
 #Output names
 IBI_output = path + 'IBI-data_'+dir_suffix+'.csv'
@@ -87,6 +88,7 @@ class extraction():
         ibi_data = ibi_data.reset_index().drop(columns=['index'])
 
         #Export
+        print('Exporting dataframe...')
         ibi_data.to_csv(IBI_output, index=False, header = True)
         print ('IBI data exported.')
         return ibi_data
@@ -360,42 +362,73 @@ class extraction():
         df.to_csv(joined_output, index=False, header = True)
         print('Joined dataframes exported')
     
-
 extract = extraction()
 #ibi_data = extract.openIBI(IBI_dir)
 #lp_data = extract.openLP(LP_dir)
 #efi_data = extract.openEFI(EFI_dir)
 #mag_data = extract.openMAG(MAG_dir)
-merged_data = extract.mergeCDF(IBI_output, LP_output, EFI_output)
+#merged_data = extract.mergeCDF(IBI_output, LP_output, EFI_output)
+#print(merged_data)
 
-df = pd.read_csv(joined_output)
-print(df)
+#df = pd.read_csv(joined_output)
+#print(df)
 
 def heatmap(df):
 
     import numpy as np
 
+    #df = df[df['p_num'] == 1]
+    #df = df[df['b_ind'] == 1]
+    #df = df.describe()
+
+    #df = df[df['date']== '2015-02-01']
     df = df[df['b_ind']!= -1]
-    df = df[~df['mlt'].between(6,18)]
+    #df = df[df['b_ind'] == 0]
+    #df = df[~df['mlt'].between(6,18)]
+
+    #epb_count = df.groupby(['date','p_num'])['b_ind'].count()
+    df = df.groupby(['date','p_num'], as_index=False)['b_ind'].sum()
+    
+    def count_epb(x):
+        if x > 1:
+            return 1
+        else:
+            return 0
 
     temp_df = df["date"].str.split("-", n = 2, expand = True)
     df["year"] = temp_df [0]
     df["month"] = temp_df [1]
-    df["date"] = temp_df [2]
+    df["day"] = temp_df [2]
     #df = df[::60]
     df = df.reset_index().drop(columns=['index'])
+    df = df.sort_values(by=['date','p_num'], ascending=[True,True])
 
-    pivot_data = df.pivot_table("b_ind","date","year", aggfunc=np.sum, dropna = False)
+    df['epb'] = df['b_ind'].apply(count_epb)
+    df = df[df['b_ind']>300]
+
+    print(df)    
+    
+    '''
+    pivot_data = df.pivot_table(values="epb",index="day",columns="month", 
+            aggfunc=np.sum, dropna = False)
     print(pivot_data)
 
     import seaborn as sns 
     from matplotlib import pyplot as plt
     from matplotlib.colors import LogNorm
     
-    cbar = 'rocket'
-    sns.heatmap(pivot_data, annot=False, cbar=cbar, linewidths=0.1, vmin=0,
-             fmt=".0f")
+    plt.figure(figsize = (3,6.6))
+    sns.heatmap(pivot_data, annot=True, linewidths=0.1, vmin=0,
+             fmt=".0f", cmap="YlGnBu")
 
-    plt.show()
+    plt.title('Number of EPB events in 2014 \n (IBI Classifier)', 
+            fontsize=10.5)
+    plt.xlabel('Month')
+    plt.ylabel('Day')
+    plt.yticks(rotation = 0)
 
-#heatmap(df)
+    plt.tight_layout()
+    plt.show()'''
+
+heatmap(df)
+

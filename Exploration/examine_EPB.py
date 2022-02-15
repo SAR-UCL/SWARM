@@ -9,7 +9,8 @@ from datetime import date
 
 #Load exported .hdf files
 #hdf_path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/April-16/'
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Feb-22/data/april-mag/'
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Feb-22/data/solar_max/'
+
 #hdf_path = r'/Users/sr2
 # 
 # 
@@ -50,22 +51,24 @@ class WrangleData():
     def frompath(cls, path, select_date=None):
         today =  str(date.today())
         #file_name = 'joined-data_2022-01-13'+ today +'.h5'
-        file_name = 'April-16-data-'+today+'.csv'
+        file_name = '2015-data-2022-02-14.csv'
         return cls(path+file_name, select_date)
 
 
-    def transform_EPB(self, sat, s_time, e_time, s_lat, e_lat):
+    def transform_EPB(self, sat, s_time, e_time, s_lat, e_lat, p_num):
 
         #Filter the data
         #self.df = self.df[self.df['b_ind']!= -1] #remove non-useful data
         #self.df = self.df[self.df['long'].between(10,180)] #remove the SSA
+        self.df = self.df[self.df['lat'].between(s_lat,e_lat)] #remove the SSA
         #self.df = self.df[~self.df['mlt'].between(6,18)] #Nightime only
+        self.df = self.df[self.df['p_num'] == p_num]
         self.df = self.df[self.df['s_id'] == sat]
         self.df = self.df[self.df['utc'].between(s_time, e_time)]
         self.df = self.df[self.df['lat'].between(s_lat,e_lat)] #EPB region 
 
         #self.df['b_sum'] = np.sqrt(self.df['nec_x']**2 + self.df['nec_y']**2 + self.df['nec_z']**2)
-        self.df['b_mu'] = self.df['f'] / (np.sqrt(self.df['nec_x']**2 + self.df['nec_y']**2 + self.df['nec_z']**2))
+        #self.df['b_mu'] = self.df['f'] / (np.sqrt(self.df['nec_x']**2 + self.df['nec_y']**2 + self.df['nec_z']**2))
         
         def new_classifier(df):
 
@@ -152,19 +155,20 @@ class WrangleData():
         return df
     
 # select_date = None
-select_date = '2016-04-01'
+select_date = '2015-03-17'
 w = WrangleData.frompath(path, select_date)
 
 sat = 'A'
 #sat = None
-#start_time, end_time = '20:01:00', '20:10:00'
-#start_lat, end_lat = -90, 90
+start_time, end_time = '00:00:01', '23:59:59'
 start_lat, end_lat = -90, 90
+p_num = 1960
+#p_num = 3212, date = 2015-02-01 is a good EPB!
 #epb_only = False
-start_time, end_time = '23:42:37','23:55:36'
-cleaned_df = w.transform_EPB(sat, start_time, end_time, start_lat, end_lat)
+#start_time, end_time = '00:00:01','23:59:59'
+cleaned_df = w.transform_EPB(sat, start_time, end_time, start_lat, end_lat, p_num)
 
-print('Outside Class\n', cleaned_df)
+#print('Outside Class\n', cleaned_df)
 #print(cleaned_df['epb'].value_counts(sort=True))
 #print(cleaned_df['b_ind'].value_counts(sort=True))
 
@@ -180,13 +184,13 @@ class PlotEPB():
 
     def __init__(self, df):
         self.df = df
-        self.p_num = 10
+        #self.p_num = 10
         #self.df = self.df[self.df['pass'] == self.p_num]
         #self.df = self.df[self.df['utc'].between('21:30:00','21:45:59')]
-        self.df = self.df[self.df['lat'].between(-15,15)]
+        self.df = self.df[self.df['lat'].between(-40,40)]
         #self.df = self.df[self.df['b_ind']!= -1] #remove non-useful data
         #self.df = self.df[self.df['long'].between(10,180)] #remove the SSA
-        self.df = self.df[~self.df['mlt'].between(6,18)] #Nightime only
+        #self.df = self.df[~self.df['mlt'].between(6,18)] #Nightime only
         #self.df = self.df[self.df['b_ind'] != 1]
         print(self.df)
 
@@ -197,7 +201,6 @@ class PlotEPB():
 
     def plotNoStdDev(self):
         
-
         figs, axs = plt.subplots(ncols=1, nrows=6, figsize=(10,7), 
         dpi=90, sharex=True) #3.5 for single, #5.5 for double
         axs = axs.flatten()
@@ -212,21 +215,21 @@ class PlotEPB():
         sns.lineplot(ax = axs[1], data = self.df, x =x, y ='Ne',
                 palette = 'bone', hue = hue, legend=False)
 
-        sns.lineplot(ax = axs[2], data = self.df, x = x, y ='b_mu', 
+        sns.lineplot(ax = axs[2], data = self.df, x = x, y ='Ne_std', 
                 #marker = 'o', linestyle='', err_style='bars', 
                 palette = palette_ne, hue = hue, legend = False)
 
-        sns.lineplot(ax = axs[3], data = self.df, x = x, y ='nec_x', 
+        sns.lineplot(ax = axs[3], data = self.df, x = x, y ='Ti', 
                 palette = palette_ti, hue = hue, legend = False)
 
-        sns.lineplot(ax = axs[4], data = self.df, x = x, y ='nec_y', 
+        sns.lineplot(ax = axs[4], data = self.df, x = x, y ='pot', 
                 palette = palette_pot, hue = hue, legend = False)
         
-        sns.lineplot(ax = axs[5], data = self.df, x = x, y ='nec_z', 
+        sns.lineplot(ax = axs[5], data = self.df, x = x, y ='Ne', 
                 palette = 'Dark2', hue = hue, legend = False)
         
         ax6 = axs[5].twinx()
-        sns.lineplot(ax = ax6, data = self.df, x = x, y ='nec_z', 
+        sns.lineplot(ax = ax6, data = self.df, x = x, y ='Ne', 
                 palette = 'tab20b', hue = hue, legend = False)
 
         date_s = self.df['date'].iloc[0]
@@ -251,8 +254,8 @@ class PlotEPB():
 
 
         axs[0].set_title(f'{title}: from {date_s} at {utc_s} ' 
-                f'to {date_e} at {utc_e}. Spacecraft: {sat}, Pass: '
-                f'{self.p_num}', fontsize = 11)
+                f'to {date_e} at {utc_e}. Spacecraft: {sat}, Pass: ')
+                #f'{self.p_num}', fontsize = 11)
         axs[0].set_ylabel('EPB \n (SWARM)')
         #axs[0].set_ylim(0, 1)
         axs[0].tick_params(bottom = False)
