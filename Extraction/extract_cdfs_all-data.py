@@ -29,7 +29,7 @@ IBI_output = path + 'IBI-data_'+dir_suffix+'.csv'
 LP_output = path + 'LP-data_'+dir_suffix+'.csv'
 EFI_output = path + 'EFI-data_'+dir_suffix+'.csv'
 MAG_output = path + 'MAG-data_'+dir_suffix+'.csv'
-EPB_output = path + 'EPB-count-data_'+dir_suffix+'.csv'
+EPB_output = path +'/EPB_counts/'+ 'EPB-count-IBI_'+dir_suffix+'.csv'
 
 today =  str(date.today())
 joined_output = path + dir_suffix + '-data-'+ today +'.csv'
@@ -405,7 +405,7 @@ def heatmap(df):
     df = df.sort_values(by=['date','p_num'], ascending=[True,True])
 
     df['epb'] = df['b_ind'].apply(count_epb)
-    df = df[df['b_ind'] > 500].reset_index().drop(columns=['index'])
+    #df = df[df['b_ind'] > 500].reset_index().drop(columns=['index'])
 
     df.to_csv(EPB_output, index=False, header = True)
     print('EPB Exported.')

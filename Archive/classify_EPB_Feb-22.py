@@ -56,10 +56,9 @@ def select_date(df, date, p_num):
 
     return df
 
-
 selection = 'multi'
 target_date = "2015-02-14"
-p_num = 2322
+p_num = 2297
 
 if selection == 'mult':
 
@@ -256,12 +255,12 @@ def plotSavGol(df):
 
 #plotSavGol(df)
 
-def plotSavGol_formal(df, fig_path):
+def plotSavGol_formal(df, fig_path, dpi):
 
         #print(df)
 
         figs, axs = plt.subplots(ncols=1, nrows=4, figsize=(8,4.5), 
-        dpi=300, sharex=True) #3.5 for single, #5.5 for double
+        dpi=dpi, sharex=True) #3.5 for single, #5.5 for double
         axs = axs.flatten()
 
         x = 'lat'
@@ -346,16 +345,17 @@ def plotSavGol_formal(df, fig_path):
         plt.tight_layout()
 
         save_fig = str(fig_path)+'/'+ str(date_s) + '_' + str(p_num) + '.png'
-        plt.savefig(save_fig)
-        print('Figure saved')
+        
+        #plt.savefig(save_fig)
+        #print('Figure saved')
 
-        #plt.show()
+        plt.show()
 
 
 fig_path = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/'
     r'Missions/SWARM/Non-Flight Data/Analysis/Feb-22/plots/solar_max/valentines/') 
 
-plotSavGol_formal(df, fig_path)
+plotSavGol_formal(df, fig_path, 90)
 
 #1 Classifer 
 #Normalise the data

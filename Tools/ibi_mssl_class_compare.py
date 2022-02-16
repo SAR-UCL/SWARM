@@ -10,47 +10,41 @@ from datetime import date
 import numpy as np
 from matplotlib import pyplot as plt
 import seaborn as sns
-pd.set_option('display.max_rows', None) #or 10 or None
+pd.set_option('display.max_rows', 10) #or 10 or None
 
 path = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/'
         'Missions/SWARM/Non-Flight Data/Analysis/Feb-22/data/solar_max/')
 
+dir_suffix = '2015'
+
+load_all = str(path) + '/' + '2015-data-2022-02-16.csv'
+epb_output = str(path) +'/EPB_counts/'+'EPB-count-MSSL_'+dir_suffix+'.csv'
+classified_output = str(path) +'/classified/'+'EPB-sg-classified_'+dir_suffix+'.csv'
+
 def open_all(filename):
-    df = pd.read_csv(str(path) + '/' +filename)
+    print('Loading data...')
+    df = pd.read_csv(filename)
     return df
 
-filename = '2015-data-2022-02-15.csv'
-df = open_all(filename)
-print('Filtering Data...')
-df = df[df['b_ind']!=-1]
-#df = df[df['lat'].between(-30,30)]
-df = df[df['date'] =='2015-02-14']
+def ibi_mssl_epb_compare():
 
-
-def ibi_mssl_epb_compare(df):
+    df = open_all(load_all)
+    print('Filtering data...')
+    df = df[df['b_ind']!=-1]
+    df = df[df['lat'].between(-35,35)]
+    #df = df[df['lat'].between(-30,30)]
+    #df = df[df['date'] == '2015-02-14']
     
     df_new = df.groupby('p_num')
-    df_arr = []
+
+    df_arr_count = []
+    df_arr_sg = []
+
     for name, num_group in df_new:
 
         try:
 
             print('Classifying pass', name)
-
-            def norm_data(df):
-            
-                #Normalise the data
-                from sklearn.preprocessing import StandardScaler
-                x_data = df[['Ne','pot']]
-                scaler = StandardScaler()
-                scaler.fit(x_data) #compute mean for removal and std
-                x_data = scaler.transform(x_data)
-                ne_scale = [a[0] for a in x_data]
-                df['Ne_scale'] = ne_scale
-
-                return df
-
-            #num_group = norm_data(num_group)
 
             def savitzky_golay(df):
                 from scipy.signal import savgol_filter
@@ -84,89 +78,183 @@ def ibi_mssl_epb_compare(df):
 
                 df = df.drop(columns=['u_c','l_c','pot_std','Te_std','Ti_std'])
 
+                df_arr_sg.append(df)
+                df = pd.concat(df_arr_sg)
+                df = df.reset_index().drop(columns=['index'])
+
                 return df
 
-            num_group = savitzky_golay(num_group)
+            classified_epb_sg = savitzky_golay(num_group)
+      
+            def mssl_epb_counter(df):
+
+                df = df.groupby(['date','p_num'], 
+                        as_index=False)['sg_smooth'].sum()
             
-            def check_function(x,y):
+                def count_epb(x):
+                    if x > 1:
+                        return 1
+                    else:
+                        return 0
 
-                if x == 1 and y == 1:
-                    return 'match'
-                if x == 0 and y == 0:
-                    return 'match'
-                else:
-                    return 'no match'
-                
-                '''
-                if x == 1 and y == 1:
-                    return 'true pos'
-                elif x == 0 and y == 0:
-                    return 'true neg'
-                elif x == 1 and y == 0:
-                    return 'false neg'
-                elif x == 0 and y == 1:
-                    return 'false pos'
-                else:
-                    return 0'''
+                df = df[~df['sg_smooth'].between(1,50)]
+                df['epb_num'] = df['sg_smooth'].apply(count_epb)
 
-            '''
-            num_group['func_score'] = num_group.apply(lambda x: check_function(x['b_ind'], 
-                    x['sg_smooth']), axis=1)
+                df_arr_count.append(df)
+                df = pd.concat(df_arr_count)
 
-            scores = num_group.groupby('func_score', as_index=False).size()
-            scores = scores.reset_index()
+                df = df.drop_duplicates(subset=['p_num'])
+                df = df.reset_index().drop(columns=['index'])
 
-            m = scores.loc[scores['func_score']=='match', 'size'].values
-            nm = scores.loc[scores['func_score']=='no match', 'size'].values
+                return df
             
+            mssl_epb_count = mssl_epb_counter(classified_epb_sg)
 
-            fn = scores.loc[scores['func_score']=='false neg', 'size'].values
-            fp = scores.loc[scores['func_score']=='false pos', 'size'].values
-            tn = scores.loc[scores['func_score']=='true neg', 'size'].values
-            tp = scores.loc[scores['func_score']=='true pos', 'size'].values
-
-            #date = num_group['date'].iloc[0]
-            p_num = num_group['p_num'].iloc[0]
-
-            
-            precision = scores.iloc[3] / (scores.iloc[3] + scores.iloc[1])
-            recall = scores.iloc[3] / (scores.iloc[3] + scores.iloc[0])
-            f1 = 2*((precision*recall)/(precision+recall))
-            precision = "{:.2f}".format(precision) 
-            recall = "{:.2f}".format(recall) 
-            f1 = "{:.2f}".format(f1)
-
-            #print('Scores',scores)
-            #print ('Precision:', precision)
-            #print ('Recall:', recall)
-            #print('F1:',f1)
-
-            return precision, recall, f1
-            
-            df = pd.DataFrame({'p_num':p_num,'match':m, 'no-match':nm})'''
-
-            num_group = num_group.groupby(['date','p_num'], as_index=False)['sg_smooth'].sum()
-        
-            def count_epb(x):
-                if x > 1:
-                    return 1
-                else:
-                    return 0
-
-            num_group['epb_num'] = num_group['sg_smooth'].apply(count_epb)
-            num_group = num_group[num_group['sg_smooth'] > 50].reset_index().drop(columns=['index'])
-            #df = df.sort_values(by=['date','p_num'], ascending=[True,True])
-
-
-            df_arr.append(num_group)
-            df = pd.concat(df_arr)
-        
         except:
             print('ERROR', name)
             pass
     
-    return df
+    #df = df.sort_values(by=['date','p_num'], ascending=[True,True])
+    classified_epb_sg.to_csv(classified_output, index=False, header = True)
+    mssl_epb_count.to_csv(epb_output, index=False, header = True)
+    #print('EPB Exported.')
+    return classified_epb_sg, mssl_epb_count
 
-compare = ibi_mssl_epb_compare(df)
-compare = compare.reset_index().drop(columns=['index'])
-print (compare)
+full_df_mssl_classified, mssl_epb_count = ibi_mssl_epb_compare()
+#print(full_df_mssl_classified)
+#print(mssl_epb_count)
+
+#Load Data for Heatmap
+#df = open_all(EPB_output)
+#df = df[df['p_num'] == 2313]
+#df = df.loc[((df['p_num'] == 2301 ) | (df['p_num'] == 2313))]
+#df = df.fillna(0)
+#print(df)
+
+def panel_plot(df, dpi):
+
+        #print(df)
+
+        figs, axs = plt.subplots(ncols=1, nrows=4, figsize=(8,4.5), 
+        dpi=dpi, sharex=True) #3.5 for single, #5.5 for double
+        axs = axs.flatten()
+
+        x = 'lat'
+        hue = 'p_num'
+
+        #palette = sns.palplot(sns.dark_palette((260, 75, 60), input="husl"))
+
+        ax0y = 'Ne'
+        sns.lineplot(ax = axs[0], data = df, x = x, y =ax0y, 
+                palette = 'cubehelix' ,hue = hue, legend=False)
+
+        ax1y = 'b_ind'
+        sns.lineplot(ax = axs[1], data = df, x =x, y =ax1y,
+                palette = 'cubehelix', hue = hue, legend=False)
+ 
+        ax2y = 'sg_smooth'
+        sns.lineplot(ax = axs[2], data = df, x = x, y =ax2y, 
+                palette = 'cubehelix', hue = hue, legend = False)
+
+        ax3y = 'utc'
+        sns.lineplot(ax = axs[3], data = df, x = x, y =ax3y, 
+                palette = 'cubehelix', hue = hue, legend = False)
+
+        ax4y = 'mlt'
+        axs4 = axs[3].twinx()
+        sns.lineplot(ax = axs4, data = df, x = x, y =ax4y, 
+                palette = 'dark', hue = hue, legend = False)
+
+        axs4.tick_params(axis = 'y', colors='darkblue', which='both')  
+        axs4.yaxis.label.set_color('darkblue')
+
+        #axs[3].yaxis.label.set_color('darkgoldenrod')
+        #axs[3].tick_params(axis = 'y', colors='darkgoldenrod', which='both')  
+
+        p_num = df['p_num'].iloc[0]
+        date_s = df['date'].iloc[0]
+        lat_s = df['lat'].iloc[0]
+        lat_e = df['lat'].iloc[-1]
+
+
+        title = 'EPB Classification: IBI Processor vs. MSSL'
+        
+        #title = 'EPB Classifier testing. Sample:'
+
+        axs[0].set_title(f'{title} on {date_s} ({p_num})' 
+                #f'\n Precision: {precision}, Recall: {recall}, F1: {f1}' 
+                ,fontsize = 11)
+
+        den = r'cm$^{-3}$'
+        axs[0].set_ylabel(f'{ax0y}')
+        axs[0].tick_params(bottom = False)
+        axs[0].set_yscale('log')
+        axs[0].set_ylabel(f'Density \n ({den})')
+        
+        axs[1].set_ylabel(f'{ax1y}')
+        axs[1].tick_params(bottom = False)
+        axs[1].set_ylabel('IBI \n Method')
+
+        axs[2].set_ylabel(f'{ax2y}')
+        axs[2].tick_params(bottom = False)
+        axs[2].set_ylabel('MSSL \n Method')
+
+        axs[3].set_ylabel(f'{ax3y}')
+        #axs[3].tick_params(bottom = False)
+        axs[3].tick_params(left = False)
+
+        axs[3].set_ylabel('UTC')
+        axs4.set_ylabel('MLT')
+
+        n = len(df) // 3
+        [l.set_visible(False) for (i,l) in 
+                enumerate(axs[3].yaxis.get_ticklabels()) if i % n != 0]
+
+        ax = plt.gca()
+        #ax.invert_xaxis()
+
+        plt.tight_layout()
+
+        #save_fig = str(fig_path)+'/'+ str(date_s) + '_' + str(p_num) + '.png'
+        
+        #plt.savefig(save_fig)
+        #print('Figure saved')
+
+        plt.show()
+
+#panel_plot(df, 90)
+
+def heatmap():
+
+    df = open_all(epb_output)
+
+
+    temp_df = df["date"].str.split("-", n = 2, expand = True)
+    df["year"] = temp_df [0]
+    df["month"] = temp_df [1]
+    df["day"] = temp_df [2]
+    #df.fillna(0)
+
+    pivot_data = df.pivot_table(values="epb_num",index="day",columns="month", 
+            aggfunc=np.sum, dropna = False)
+
+    print(pivot_data)
+
+    import seaborn as sns 
+    from matplotlib import pyplot as plt
+    from matplotlib.colors import LogNorm
+
+    plt.figure(figsize = (3,6.6))
+    sns.heatmap(pivot_data, annot=True, linewidths=0.1, vmin=0,
+                fmt=".0f", cmap="YlGnBu")
+
+    plt.title('Number of EPB events in 2015 \n (MSSL Classifier)', 
+            fontsize=10.5)
+    plt.xlabel('Month')
+    plt.ylabel('Day')
+    plt.yticks(rotation = 0)
+
+    plt.tight_layout()
+    plt.show()
+
+heatmap()
