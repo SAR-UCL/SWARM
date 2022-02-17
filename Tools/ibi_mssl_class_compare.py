@@ -19,6 +19,7 @@ dir_suffix = '2015'
 
 load_all = str(path) + '/' + '2015-data-2022-02-16.csv'
 epb_output = str(path) +'/EPB_counts/'+'EPB-count-MSSL_'+dir_suffix+'.csv'
+epb_ibi = str(path) +'/EPB_counts/'+'EPB-count-IBI_'+dir_suffix+'.csv'
 classified_output = str(path) +'/classified/'+'EPB-sg-classified_'+dir_suffix+'.csv'
 
 def open_all(filename):
@@ -28,12 +29,20 @@ def open_all(filename):
 
 def ibi_mssl_epb_compare():
 
-    df = open_all(load_all)
+    #for testing
+    df = open_all(classified_output)
+    df = df.drop(columns=['Ne_savgol','Ne_resid','sg_epb','sg_smooth'])
+
+    print(df)
+
+    #df = open_all(load_all)
+
     print('Filtering data...')
     df = df[df['b_ind']!=-1]
     df = df[df['lat'].between(-35,35)]
     #df = df[df['lat'].between(-30,30)]
     #df = df[df['date'] == '2015-02-14']
+    #df = df[df['p_num'] == 3474]
     
     df_new = df.groupby('p_num')
 
@@ -41,7 +50,7 @@ def ibi_mssl_epb_compare():
     df_arr_sg = []
 
     for name, num_group in df_new:
-
+        
         try:
 
             print('Classifying pass', name)
@@ -76,20 +85,42 @@ def ibi_mssl_epb_compare():
                 df['sg_smooth'] = df.apply(lambda x: smooth_savgol(x['sg_epb'], 
                         x['u_c'], x['l_c']), axis=1)
 
-                df = df.drop(columns=['u_c','l_c','pot_std','Te_std','Ti_std'])
+                #df = df.drop(columns=['u_c','l_c','pot_std','Te_std','Ti_std'])
+                df = df.drop(columns=['u_c','l_c'])
 
                 df_arr_sg.append(df)
-                df = pd.concat(df_arr_sg)
-                df = df.reset_index().drop(columns=['index'])
 
-                return df
-
+                return df_arr_sg
+            
             classified_epb_sg = savitzky_golay(num_group)
-      
-            def mssl_epb_counter(df):
+            
+            #ibi_epb_count = mssl_epb_counter(classified_epb_sg, 'b_ind')
+
+        except:
+            print('ERROR', name)
+            pass
+    
+
+    #return dataframes
+    classified_df = pd.concat(classified_epb_sg, ignore_index=True)
+
+    df_count = classified_df.groupby('p_num')
+    
+    df_arr_mssl_count = []
+    df_arr_ibi_count = []
+
+    for name, num_group in df_count:
+
+            #df_sg = df.groupby(['date','p_num'], as_index=False)['sg_smooth'].sum()
+
+            #df_sg = df_sg[~df_sg['sg_smooth'].between(1,50)]
+            #df_sg['epb_num'] = df_sg['sg_smooth'].apply(count_epb)
+
+
+            def mssl_epb_counter(df, classifier, list_op):
 
                 df = df.groupby(['date','p_num'], 
-                        as_index=False)['sg_smooth'].sum()
+                        as_index=False)[classifier].sum()
             
                 def count_epb(x):
                     if x > 1:
@@ -97,30 +128,51 @@ def ibi_mssl_epb_compare():
                     else:
                         return 0
 
-                df = df[~df['sg_smooth'].between(1,50)]
-                df['epb_num'] = df['sg_smooth'].apply(count_epb)
+                df = df[~df[classifier].between(1,50)]
+                df['epb_num'] = df[classifier].apply(count_epb)
 
-                df_arr_count.append(df)
-                df = pd.concat(df_arr_count)
+                '''
+                #weirdly can't turn string into argument. Doesn't like it
+                if classifer == 'sg_smooth':
+                    df = df[~df['sg_smooth'].between(1,50)]
+                    df['epb_num'] = df['sg_smooth'].apply(count_epb)
+                else:
+                    pass
+                    df = df[~df['b_ind'].between(1,50)]
+                    df['epb_num'] = df['b_ind'].apply(count_epb)'''
 
-                df = df.drop_duplicates(subset=['p_num'])
-                df = df.reset_index().drop(columns=['index'])
+                list_op.append(df)
 
-                return df
-            
-            mssl_epb_count = mssl_epb_counter(classified_epb_sg)
+                #df = pd.concat(df_arr_count)
+                #df = df.drop_duplicates(subset=['p_num'])
+                #df = df.reset_index().drop(columns=['index'])
 
-        except:
-            print('ERROR', name)
-            pass
-    
+                return list_op
+     
+            mssl_epb_count = mssl_epb_counter(num_group, 'sg_smooth', 
+                    df_arr_mssl_count)
+            ibi_epb_count = mssl_epb_counter(num_group, 'b_ind', 
+                    df_arr_ibi_count)
+
+    mssl_epb_df = pd.concat(mssl_epb_count, ignore_index=True)
+    ibi_epb_df = pd.concat(mssl_epb_count, ignore_index=True)
+
+    #classified_df = classified_epb_sg
+
     #df = df.sort_values(by=['date','p_num'], ascending=[True,True])
-    classified_epb_sg.to_csv(classified_output, index=False, header = True)
-    mssl_epb_count.to_csv(epb_output, index=False, header = True)
-    #print('EPB Exported.')
-    return classified_epb_sg, mssl_epb_count
+    
+    #Export the dataframes
+    #classified_df.to_csv(classified_output, index=False, header = True)
+    #mssl_epb_count.to_csv(epb_output, index=False, header = True)
+    
+    print('EPB Exported.')
+    return classified_df, mssl_epb_df
 
-full_df_mssl_classified, mssl_epb_count = ibi_mssl_epb_compare()
+print(ibi_mssl_epb_compare())
+
+#full_df_mssl_classified, mssl_epb_count, ibi_epb_count = ibi_mssl_epb_compare()
+#print(mssl_epb_count)
+#print(ibi_epb_count)
 #print(full_df_mssl_classified)
 #print(mssl_epb_count)
 
@@ -131,9 +183,14 @@ full_df_mssl_classified, mssl_epb_count = ibi_mssl_epb_compare()
 #df = df.fillna(0)
 #print(df)
 
-def panel_plot(df, dpi):
+def panel_plot(dpi):
 
         #print(df)
+
+        df = open_all(classified_output)
+        #df = full_df_mssl_classified
+        
+        #df = df[df['p_num'] == 2925]
 
         figs, axs = plt.subplots(ncols=1, nrows=4, figsize=(8,4.5), 
         dpi=dpi, sharex=True) #3.5 for single, #5.5 for double
@@ -176,11 +233,8 @@ def panel_plot(df, dpi):
         lat_s = df['lat'].iloc[0]
         lat_e = df['lat'].iloc[-1]
 
-
         title = 'EPB Classification: IBI Processor vs. MSSL'
-        
-        #title = 'EPB Classifier testing. Sample:'
-
+    
         axs[0].set_title(f'{title} on {date_s} ({p_num})' 
                 #f'\n Precision: {precision}, Recall: {recall}, F1: {f1}' 
                 ,fontsize = 11)
@@ -189,15 +243,16 @@ def panel_plot(df, dpi):
         axs[0].set_ylabel(f'{ax0y}')
         axs[0].tick_params(bottom = False)
         axs[0].set_yscale('log')
-        axs[0].set_ylabel(f'Density \n ({den})')
+        axs[0].set_ylabel(f'Ne \n ({den})')
+        axs[0].set_ylim([1e4, 1e6])
         
         axs[1].set_ylabel(f'{ax1y}')
         axs[1].tick_params(bottom = False)
-        axs[1].set_ylabel('IBI \n Method')
+        axs[1].set_ylabel('IBI')
 
         axs[2].set_ylabel(f'{ax2y}')
         axs[2].tick_params(bottom = False)
-        axs[2].set_ylabel('MSSL \n Method')
+        axs[2].set_ylabel('MSSL')
 
         axs[3].set_ylabel(f'{ax3y}')
         #axs[3].tick_params(bottom = False)
@@ -211,6 +266,7 @@ def panel_plot(df, dpi):
                 enumerate(axs[3].yaxis.get_ticklabels()) if i % n != 0]
 
         ax = plt.gca()
+        ax.set_xlim([-40, 40])
         #ax.invert_xaxis()
 
         plt.tight_layout()
@@ -222,39 +278,57 @@ def panel_plot(df, dpi):
 
         plt.show()
 
-#panel_plot(df, 90)
+#panel_plot(90)
 
 def heatmap():
 
-    df = open_all(epb_output)
+    #load data
+    df_mssl = open_all(epb_output)
+    df_ibi = open_all(epb_ibi)
 
+    def split_datetime(df):
+        temp_df = df["date"].str.split("-", n = 2, expand = True)
+        #df["year"] = temp_df [0]
+        df["month"] = temp_df [1]
+        df["day"] = temp_df [2]
 
-    temp_df = df["date"].str.split("-", n = 2, expand = True)
-    df["year"] = temp_df [0]
-    df["month"] = temp_df [1]
-    df["day"] = temp_df [2]
-    #df.fillna(0)
+        return df
+    
+    df_mssl = split_datetime(df_mssl)
+    #df_ibi = split_datetime(df_ibi)
 
-    pivot_data = df.pivot_table(values="epb_num",index="day",columns="month", 
-            aggfunc=np.sum, dropna = False)
+    def pivot_table(df):
+        pivot_data = df.pivot_table(values="epb_num",index="day",
+                columns="month", aggfunc=np.sum, dropna = False)
 
-    print(pivot_data)
+        return pivot_data
 
+    pv_mssl = pivot_table(df_mssl)
+    pv_ibi = pivot_table(df_ibi)
+
+    def diff_pivots(df):
+
+        delta = pv_mssl.values - pv_ibi.values
+        delta = pd.DataFrame(delta)
+        delta.index = delta.index + 1
+        delta = delta.rename(columns={0:'Feb',1:'Mar',2:'Sep',3:'Oct'})
+    #print(delta)
+    
     import seaborn as sns 
     from matplotlib import pyplot as plt
     from matplotlib.colors import LogNorm
 
     plt.figure(figsize = (3,6.6))
-    sns.heatmap(pivot_data, annot=True, linewidths=0.1, vmin=0,
-                fmt=".0f", cmap="YlGnBu")
+    sns.heatmap(delta, annot=True, linewidths=0.1,
+                fmt=".0f", cmap="PiYG", center=0)
 
     plt.title('Number of EPB events in 2015 \n (MSSL Classifier)', 
             fontsize=10.5)
-    plt.xlabel('Month')
-    plt.ylabel('Day')
+    plt.xlabel(' ')
+    plt.ylabel(' ')
     plt.yticks(rotation = 0)
 
     plt.tight_layout()
     plt.show()
 
-heatmap()
+#heatmap()

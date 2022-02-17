@@ -16,7 +16,7 @@ import os
 from datetime import date
 #pd.set_option('display.max_rows', None) #or 10 or None
 
-dir_suffix = '2015'
+dir_suffix = '2014'
 
 IBI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/solar_max/'+dir_suffix)
 LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/solar_max/'+dir_suffix)
@@ -371,6 +371,7 @@ extract = extraction()
 #merged_data = extract.mergeCDF(IBI_output, LP_output, EFI_output)
 #print(merged_data)
 
+print('Loading data...')
 df = pd.read_csv(joined_output)
 #print(df)
 
@@ -381,11 +382,12 @@ def heatmap(df):
     #df = df[df['p_num'] == 1]
     #df = df[df['b_ind'] == 1]
     #df = df.describe()
-
+    
+    print('Heatmap prep...')
     #df = df[df['date']== '2015-02-01']
     df = df[df['b_ind']!= -1]
     #df = df[df['b_ind'] == 0]
-    #df = df[~df['mlt'].between(6,18)]
+    df = df[df['lat'].between(-35,35)]
 
     #epb_count = df.groupby(['date','p_num'])['b_ind'].count()
     df = df.groupby(['date','p_num'], as_index=False)['b_ind'].sum()
@@ -397,9 +399,9 @@ def heatmap(df):
             return 0
 
     temp_df = df["date"].str.split("-", n = 2, expand = True)
-    #df["year"] = temp_df [0]
-    #df["month"] = temp_df [1]
-    #df["day"] = temp_df [2]
+    df["year"] = temp_df [0]
+    df["month"] = temp_df [1]
+    df["day"] = temp_df [2]
     #df = df[::60]
     df = df.reset_index().drop(columns=['index'])
     df = df.sort_values(by=['date','p_num'], ascending=[True,True])
@@ -412,7 +414,7 @@ def heatmap(df):
 
     print(df)    
     
-    '''
+
     pivot_data = df.pivot_table(values="epb",index="day",columns="month", 
             aggfunc=np.sum, dropna = False)
     print(pivot_data)
@@ -432,7 +434,7 @@ def heatmap(df):
     plt.yticks(rotation = 0)
 
     plt.tight_layout()
-    plt.show()'''
+    plt.show()
 
 heatmap(df)
 

@@ -38,63 +38,10 @@ def demo_func(x):
 
 #df['Ne_new'] = df.groupby('p_num')['Ne'].apply(demo_func)
 
-print(df)
+#print(df)
 
-def ibi_mssl_epb_compare(df):
+arr = np.array([['2015-02-14', '00:00:23', 21.2924381044169]])
 
-    df_new = df.groupby('p_num')
-    df_arr = []
-    for name, group in df_new:
-
-        from sklearn.preprocessing import StandardScaler
-        x_data = group[['Ne','p_num']]
-        scaler = StandardScaler()
-        scaler.fit(x_data) #compute mean for removal and std
-        x_data = scaler.transform(x_data)
-        ne_scale = [a[0] for a in x_data]
-        group['Ne_scale'] = ne_scale
-
-        def check_function(x,y):
-            if x == 5e1 and y == -1:
-            #if x == 1 and y == 1:
-                return 'true pos'
-            elif x == 0 and y == 0:
-                return 'true neg'
-            elif x == 1 and y == 0:
-                return 'false neg'
-            elif x == 0 and y == 1:
-                return 'false pos'
-            else:
-                return 'no match'
-
-        group['func_score'] = group.apply(lambda x: check_function(x['Ne'], 
-                x['Ne_scale']), axis=1)
-
-        score = group.groupby('func_score', as_index=False).size()
-
-        date = group['date'].iloc[0]
-        p_num = group['p_num'].iloc[0]
-        #precision = score['size']
-        precision = score.loc[score['func_score']=='no match', 'size']
-
-
-        
-        #precision = score['precision'].iloc[0]
-        #precision = score.loc['precision']
-
-        df = pd.DataFrame({'date':[date], 'p_num':p_num,  'precision':precision})
-        df_arr.append(df)
-        df = pd.concat(df_arr)
-
-        #group['prescion'] = score.iloc[0]
-        #print(precision)
-        #print(date)
-
-    #print(precision)
-    #print(score)
-    
-    return df
-    #return group
-
-df = ibi_mssl_epb_compare(df)
-print(df)
+classified_df = pd.DataFrame(arr)
+print(classified_df)
+#print(arr)
