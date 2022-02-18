@@ -22,8 +22,14 @@ path = (r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions'
 
 today =  str(date.today())
 file_name = 'wrangled-EPB-'+ today +'.h5'
-load_hdf = path + file_name
-load_hdf = pd.read_hdf(load_hdf)
+#load_hdf = path + file_name
+#load_hdf = pd.read_hdf(load_hdf)
+
+path = (r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions'
+        '/SWARM/Non-Flight Data/Analysis/Feb-22/data/solar_max/classified/')
+
+filename = path + 'EPB-sg-classified-filter_2015.csv'
+load_hdf = pd.read_csv(filename)
 
 #print(load_hdf)
 
@@ -31,12 +37,14 @@ class RF_classifer():
 
     def featureEng(self, df):
 
+        print('feature engineering...')
+
         #df = df[df['b_ind'] != -1] #remove non MLT data
         #df = df[df['lat'].between(-30,30)] #only include low lat
         #df = df[~df['mlt'].between(6, 18)] #include only nightside 
         #df = df[df['long'].between(10,180)] #remove SSA
 
-        dfc = df.groupby(['epb']).count()
+        dfc = df.groupby(['sg_smooth']).count()
         major = dfc['date'].iloc[0]
         minor = dfc['date'].iloc[1]
         
@@ -46,6 +54,7 @@ class RF_classifer():
     def selectNScale(self, df, features):
         from sklearn.preprocessing import StandardScaler
 
+        print('re-scaling data...')
         #Select and scale the x data
         #features = ['long','Ne','Ti','pot']
         x_data = df[features]
@@ -54,7 +63,7 @@ class RF_classifer():
         x_data = scaler.transform(x_data)
 
         #select and flatten y data
-        labels = 'epb'
+        labels = 'sg_smooth'
         y_data = df[[labels]]
         y_data = y_data[[labels]].to_numpy()
         y_data = np.concatenate(y_data).ravel().tolist()
@@ -64,25 +73,28 @@ class RF_classifer():
     def train_test_split(self, x_data, y_data):
         from sklearn.model_selection import train_test_split
 
+        print('splitting data...')
+
         X_train, X_test, y_train, y_test = train_test_split(x_data, y_data, 
                 test_size = 0.1, random_state=42) #test 0.2 = 20%
 
         #print(len(X_train))
         return X_train, X_test, y_train, y_test
 
-
     def resample_class(self, X, y):
         from collections import Counter
         from imblearn.datasets import make_imbalance
         from imblearn.over_sampling import SMOTE
+
+        print('re-sampling data...')
 
         #https://imbalanced-learn.org/dev/references/generated/
         #imblearn.over_sampling.SMOTE.html
         sm = SMOTE(random_state = 42)
         X_rs, y_rs = sm.fit_resample(X,y)
 
-        #print('Orignal data shape%s' %Counter(y))
-        #print('Resampled data shape%s' %Counter(y_rs))
+        print('Orignal data shape%s' %Counter(y))
+        print('Resampled data shape%s' %Counter(y_rs))
         
         return X_rs, y_rs
 
@@ -93,7 +105,7 @@ class RF_classifer():
         import pickle
         #from sklearn import metrics
 
-        print('Creating RF...')
+        print('creating RF...')
         model = RandomForestClassifier(n_estimators=175, random_state=42,
         min_samples_leaf=3)
         #model = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, 
@@ -101,16 +113,17 @@ class RF_classifer():
 
         model = model.fit(X_train, y_train)
         model.n_features_
+        
+        #return model
 
         with open(model_pathfile, 'wb') as file:
             pickle.dump(model, file)
-
         print('model exported\n')
-
-        #return model
+        
         return model_pathfile
 
     def load_model(self):
+        #print('loading model...')
         with open(model_pathfile, 'rb') as file:
             model = pickle.load(file)
         return model
@@ -119,6 +132,7 @@ class RF_classifer():
 
         from sklearn import metrics
 
+        #model = self.build_rf_model(X_train, y_train)
         model = self.load_model()
 
         y_pred = model.predict(X_test) #based on the model, predict EPB or not EPB 
@@ -174,12 +188,12 @@ X_train, X_test, y_train, y_test = rf.train_test_split(x_data, y_data)
 X_train, y_train = rf.resample_class(X_train, y_train)
 
 #save model
-model_name = today + '_rf_decadal_F1-77.pkl'
+model_name = today + '_rf_solar_max.pkl'
 model_pathfile = path + 'ML-models/' + model_name
-#model = rf.build_rf_model(X_train, y_train)
+model = rf.build_rf_model(X_train, y_train)
 
 #load model
-#rf_model = rf.model_info(feature_labs) #model info
+rf_model = rf.model_info(feature_labs) #model info
 rf_model = rf.plot_rf(feature_labs) #plot model
 
 #print(feat_eng)

@@ -254,7 +254,7 @@ def plotSavGol(df):
         plt.show()
 
 #plotSavGol(df)
-
+x
 def plotSavGol_formal(df, fig_path, dpi):
 
         #print(df)
