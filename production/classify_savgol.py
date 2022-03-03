@@ -30,6 +30,8 @@ epb_ibi_output = str(path) +'/EPB_counts/'+'EPB-count-IBI_'+dir_suffix+'.csv'
 classified_output = str(path) +'/classified/'+'EPB-sg-classified_'+dir_suffix+'.csv'
 filter_classified_output = str(path) +'/classified/'+'EPB-sg-classified-filter_'+dir_suffix+'.csv'
 
+#for testing. Quicker to load
+
 #classified_output = str(path) +'/classified/'+'EPB-sg-classified_indie_'+dir_suffix+'.csv'
 
 def open_all(filename):
@@ -55,7 +57,7 @@ class classify_epb():
         print('Filtering data...')
         df = df[df['b_ind']!=-1]
         df = df[df['lat'].between(-35,35)]
-        #df = df[df['date'] == '2015-02-14']
+        df = df[df['date'] == '2015-03-18']
         #df = df[df['p_num'] == 3474]
         
         df_sg = df.groupby('p_num')
@@ -124,8 +126,10 @@ class classify_epb():
         #Count the number of EPB's per pass
         #Assumes one per pass and each is unique (this isn't true)
         df_count = classified_df.groupby('p_num')
+        
         df_arr_mssl_count = []
         df_arr_ibi_count = []
+        df_arr_mssl_cont = []
 
         for name, count_group in df_count:
 
@@ -150,9 +154,9 @@ class classify_epb():
                         pass
 
                     df['epb_num'] = df[classifier].apply(count_epb)
-
+                    df = df.rename(columns={df.columns[2]:'epb_size'})
                     list_op.append(df)
-
+                
                     #df = pd.concat(df_arr_count)
                     #df = df.drop_duplicates(subset=['p_num'])
                     #df = df.reset_index().drop(columns=['index'])
@@ -172,28 +176,29 @@ class classify_epb():
         mssl_epb_df = pd.concat(mssl_epb_count, ignore_index=True)
         ibi_epb_df = pd.concat(ibi_epb_count, ignore_index=True)
 
-
         #df = df.sort_values(by=['date','p_num'], ascending=[True,True])
         
         #Export the dataframes
         print('Exporting dataframes...')
-        classified_df.to_csv(classified_output, index=False, header = True)
-        mssl_epb_df.to_csv(epb_mssl_output, index=False, header = True)
-        ibi_epb_df.to_csv(epb_ibi_output, index=False, header = True)
+        #classified_df.to_csv(classified_output, index=False, header = True)
+        #mssl_epb_df.to_csv(epb_mssl_output, index=False, header = True)
+        #ibi_epb_df.to_csv(epb_ibi_output, index=False, header = True)
         
         print('Dataframe exported.')
         return classified_df, mssl_epb_df, ibi_epb_df
 
-    def filter_epb(self):
+    def filter_epb(self,mssl_cat, ibi_cat):
         
         df_mssl = open_all(epb_mssl_output)
         df_ibi = open_all(epb_ibi_output)
 
+        #print(df_mssl)
+
         df_mssl = df_mssl.groupby(['date'], 
-                as_index=False)['epb_num'].sum()
+                as_index=False)[mssl_cat].sum()
 
         df_ibi = df_ibi.groupby(['date'], 
-                as_index=False)['epb_num'].sum()
+                as_index=False)[ibi_cat].sum()
 
         df_m = df_mssl.merge(df_ibi, on =['date'], how='outer')
 
@@ -213,12 +218,14 @@ class classify_epb():
         #        x['epb_num_y']), axis=1)
         #df_m = df_m[df_m['date_check'] !=0 ]
 
+
         #split them back up
-        df_mssl = df_m[['date','epb_num_x']]
-        df_ibi = df_m[['date','epb_num_y']]
+        df_mssl = df_m[['date',mssl_cat+'_x']]
+        df_ibi = df_m[['date',ibi_cat+'_y']]
+
 
         def rename(df):
-            df = df.rename(columns={df.columns[1]:'epb_num'})
+            df = df.rename(columns={df.columns[1]:mssl_cat})
             return df
 
         df_mssl = rename(df_mssl)
@@ -229,22 +236,28 @@ class classify_epb():
         #print('days Remaining:', dates_remaining)
         #print('pc remaining', (dates_remaining/112)*100)
 
+        #print(df_mssl, df_ibi)
         return df_mssl, df_ibi
-    
-    def pivot_epb(self, df_mssl, df_ibi):
+
+    def pivot_epb(self, df_mssl, df_ibi, cat):
+
+        print(df_mssl)
 
         def split_datetime(df):
             temp_df = df["date"].str.split("-", n = 2, expand = True)
             df["year"] = temp_df [0]
             df["month"] = temp_df [1]
             df["day"] = temp_df [2]
-            df['month'] = df['month'].replace({'02':'Feb','03':'Mar','09':'Sep',
-                    '10':'Oct'})
+            #df['month'] = df['month'].replace({'02':'Feb','03':'Mar','09':'Sep',
+            #        '10':'Oct'})
             return df
+        
         
         df_mssl = split_datetime(df_mssl)
         year = df_mssl['year'].iloc[0]
         df_ibi = split_datetime(df_ibi)
+
+        
         
         #retain the dates
         retained_dates = df_mssl['date'].to_list()
@@ -255,8 +268,8 @@ class classify_epb():
 
             return pivot_data
 
-        pv_mssl = pivot_table(df_mssl, "epb_num", "day")
-        pv_ibi = pivot_table(df_ibi, "epb_num", "day")
+        pv_mssl = pivot_table(df_mssl, cat, "day")
+        pv_ibi = pivot_table(df_ibi, cat, "day")
 
 
         def diff_pivots(pv_mssl, pv_ibi):
@@ -265,11 +278,15 @@ class classify_epb():
             df = pd.DataFrame(df)
             df.index = df.index + 1
             df = df.rename(columns={0:'Feb',1:'Mar',2:'Sep',3:'Oct'})
-            df = df[(df > -3) & (df < 3)]
+            #df = df[(df > -3) & (df < 3)]
             
             return df
 
         mssl_diff_ibi = diff_pivots(pv_mssl, pv_ibi)
+
+        print(mssl_diff_ibi)
+        #print(pv_mssl)
+        #print(pv_ibi)
 
         return mssl_diff_ibi, pv_mssl, pv_ibi, retained_dates, year
     
@@ -283,25 +300,46 @@ class classify_epb():
         df.to_csv(filter_classified_output, index=False, header = True)
         print('Dataframe exported.')
 
-
 #ebuild_sg_df(retained_dates)
 classify = classify_epb()
-#full_df_mssl_classified, mssl_epb_count, ibi_epb_count = classify.ibi_mssl_epb_compare()
+#full_df_mssl_classified, mssl_epb_count, ibi_epb_count= classify.ibi_mssl_epb_compare()
 #print(full_df_mssl_classified)
 #print('MSSL count\n',mssl_epb_count)
 #print('IBI count\n',ibi_epb_count)
 
-#df_mssl, df_ibi = classify.filter_epb()
-#mssl_ibi, pv_mssl, pv_ibi, retained_dates, year = classify.pivot_epb(df_mssl, df_ibi)
+#EPB counter (how many EPB events per day)
+#df_mssl, df_ibi = classify.filter_epb('epb_num','epb_num')
+#mssl_ibi, pv_mssl, pv_ibi, retained_dates, year = classify.pivot_epb(df_mssl, df_ibi,"epb_num")
 #classify.rebuild_sg_df(mssl_ibi, retained_dates)
 
+#EPB continuous data (how large is each point?)
+#df_mssl, df_ibi = classify.filter_epb('epb_size','epb_size')
+#mssl_ibi, pv_mssl, pv_ibi, retained_dates, year = classify.pivot_epb(df_mssl, df_ibi,"epb_size")
+
+'''
+plt.figure(figsize = (4,6.6))
+#cmap = "PiYG" #differentiation
+cmap = "YlGnBu" #individual days
+sns.heatmap(pv_ibi, annot=True, linewidths=0.1,
+            fmt=".0f", cmap=cmap, center=None)
+
+plt.title(f'Number of EPB flags per day in 2014 \n IBI', fontsize=10.5)
+#plt.title(f'Number of EPB events in {date}, \n (MSSL Classifier)', fontsize=10.5)
+plt.xlabel(' ')
+plt.ylabel(' ')
+
+#ax.figure.axes[-1].set_ylabel(f'{log} counts per sec', size=9.5)
+plt.yticks(rotation = 0)
+
+plt.tight_layout()
+plt.show()'''
 
 def panel_plot(dpi):
 
         #print(df)
 
         df = open_all(classified_output)
-        df = df[df['p_num'] == 387]
+        df = df[df['p_num'] == 1694]
 
         figs, axs = plt.subplots(ncols=1, nrows=4, figsize=(8,4.5), 
         dpi=dpi, sharex=True) #3.5 for single, #5.5 for double
@@ -389,7 +427,7 @@ def panel_plot(dpi):
 
         plt.show()
 
-#panel_plot(90)
+#anel_plot(90)
 
 def heatmap(df, pv_mssl, pv_ibi, year):
 
@@ -472,7 +510,6 @@ def heatmap(df, pv_mssl, pv_ibi, year):
 
 def determine_epb_intensity(df):
     
-    
     df['lat'] = df['lat'].round(0)
     df['long'] = df['long'].round(0)
     df['mlt'] = df['mlt'].round(1)
@@ -481,13 +518,13 @@ def determine_epb_intensity(df):
     df["day"] = df['date'].str.slice(start=8)
     df['# of EPB flags'] = df['sg_smooth']
 
-    mssl_epb_intensity = df.groupby(['day','lat','long'], 
+    mssl_epb_intensity = df.groupby(['date','mlt','lat','long'], 
             as_index=False)['# of EPB flags'].sum()
 
     #mssl_epb_intensity = df.groupby(['date','mon','lat','long'], 
     #        as_index=False)['# of EPB flags'].sum()
 
-    mssl_epb_intensity = mssl_epb_intensity.sort_values(by=['day'], 
+    mssl_epb_intensity = mssl_epb_intensity.sort_values(by=['mlt'], 
             ascending=True)
 
     #mssl_epb_date = df.groupby(['date','long','lat'], 
@@ -498,15 +535,127 @@ def determine_epb_intensity(df):
     #print(mssl_epb_date)
 
     import plotly.express as px
-    fig = px.density_mapbox(mssl_epb_intensity, lat='lat', lon='long', z='# of EPB flags', radius=10,
+    fig = px.density_mapbox(mssl_epb_intensity, lat='lat', lon='long', z='# of EPB flags', radius=25,
                     center=dict(lat=0, lon=0), zoom=1, 
-                    #range_color=[0,35],
-                    animation_frame = 'day',
+                    range_color=[0,35],
+                    hover_name = 'date',
+                    animation_frame = 'mlt',
                     color_continuous_scale=px.colors.sequential.Viridis,
                     mapbox_style="carto-darkmatter")
     
     fig.show()
-    #return fig
+    return fig
 
-full_df_mssl_classified = open_all(filter_classified_output)
-determine_epb_intensity(full_df_mssl_classified)
+#full_df_mssl_classified = open_all(filter_classified_output)
+#determine_epb_intensity(full_df_mssl_classified)
+
+def train_test_class(dpi):
+
+        #print(df)
+
+        df = open_all(classified_output)
+        
+        df = df[df['p_num'] == 1694]
+        
+        df_exp = df[['date','utc','mlt','lat','long','s_id','p_num','Ne','Ti','pot']]
+        df_exp['id'] = 13
+        df_exp['epb_gt'] = 0
+        df_exp = df_exp.reset_index().drop(columns=['index'])
+
+        date = df_exp['date'].iloc[0]
+        path_e = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Mar-22/data/train-test-sg/new_additions/'
+        
+        export = path_e + date + '_test_train.csv'
+        df_exp.to_csv(export, index=False, header = True)
+
+        print(df_exp)
+
+        
+
+        figs, axs = plt.subplots(ncols=1, nrows=4, figsize=(8,4.5), 
+        dpi=dpi, sharex=True) #3.5 for single, #5.5 for double
+        axs = axs.flatten()
+
+        x = 'lat'
+        hue = 'p_num'
+
+        #palette = sns.palplot(sns.dark_palette((260, 75, 60), input="husl"))
+
+        ax0y = 'Ne'
+        sns.lineplot(ax = axs[0], data = df, x = x, y =ax0y, 
+                palette = 'cubehelix' ,hue = hue, legend=False)
+
+        ax1y = 'b_ind'
+        sns.lineplot(ax = axs[1], data = df, x =x, y =ax1y,
+                palette = 'cubehelix', hue = hue, legend=False)
+ 
+        ax2y = 'sg_smooth'
+        sns.lineplot(ax = axs[2], data = df, x = x, y =ax2y, 
+                palette = 'cubehelix', hue = hue, legend = False)
+
+        ax3y = 'utc'
+        sns.lineplot(ax = axs[3], data = df, x = x, y =ax3y, 
+                palette = 'cubehelix', hue = hue, legend = False)
+
+        ax4y = 'mlt'
+        axs4 = axs[3].twinx()
+        sns.lineplot(ax = axs4, data = df, x = x, y =ax4y, 
+                palette = 'dark', hue = hue, legend = False)
+
+        axs4.tick_params(axis = 'y', colors='darkblue', which='both')  
+        axs4.yaxis.label.set_color('darkblue')
+
+        #axs[3].yaxis.label.set_color('darkgoldenrod')
+        #axs[3].tick_params(axis = 'y', colors='darkgoldenrod', which='both')  
+
+        p_num = df['p_num'].iloc[0]
+        date_s = df['date'].iloc[0]
+        lat_s = df['lat'].iloc[0]
+        lat_e = df['lat'].iloc[-1]
+
+        title = 'EPB Classification: IBI Processor vs. MSSL'
+    
+        axs[0].set_title(f'{title} on {date_s} ({p_num})' 
+                #f'\n Precision: {precision}, Recall: {recall}, F1: {f1}' 
+                ,fontsize = 11)
+
+        den = r'cm$^{-3}$'
+        axs[0].set_ylabel(f'{ax0y}')
+        axs[0].tick_params(bottom = False)
+        axs[0].set_yscale('log')
+        axs[0].set_ylabel(f'Ne \n ({den})')
+        axs[0].set_ylim([1e4, 4e6])
+        
+        axs[1].set_ylabel(f'{ax1y}')
+        axs[1].tick_params(bottom = False)
+        axs[1].set_ylabel('IBI')
+
+        axs[2].set_ylabel(f'{ax2y}')
+        axs[2].tick_params(bottom = False)
+        axs[2].set_ylabel('MSSL')
+
+        axs[3].set_ylabel(f'{ax3y}')
+        #axs[3].tick_params(bottom = False)
+        axs[3].tick_params(left = False)
+
+        axs[3].set_ylabel('UTC')
+        axs4.set_ylabel('MLT')
+
+        n = len(df) // 3
+        [l.set_visible(False) for (i,l) in 
+                enumerate(axs[3].yaxis.get_ticklabels()) if i % n != 0]
+
+        ax = plt.gca()
+        ax.set_xlim([-40, 40])
+        #ax.invert_xaxis()
+
+        plt.tight_layout()
+
+        #save_fig = str(fig_path)+'/'+ str(date_s) + '_' + str(p_num) + '.png'
+        
+        #plt.savefig(save_fig)
+        #print('Figure saved')
+
+        plt.show()
+
+train_test_class(90)

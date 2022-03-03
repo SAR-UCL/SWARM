@@ -93,8 +93,8 @@ class RF_classifer():
         sm = SMOTE(random_state = 42)
         X_rs, y_rs = sm.fit_resample(X,y)
 
-        print('Orignal data shape%s' %Counter(y))
-        print('Resampled data shape%s' %Counter(y_rs))
+        #print('Orignal data shape%s' %Counter(y))
+        #print('Resampled data shape%s' %Counter(y_rs))
         
         return X_rs, y_rs
 
@@ -158,10 +158,14 @@ class RF_classifer():
         #Feature importance using SHAP values
         #https://towardsdatascience.com/explain-your-model-with-the-shap-values-bc36aac4de3d
 
-    def plot_rf(self, feature_labs):
+        return accuracy, precision, recall, f1
+
+    def plot_rf(self, feature_labs, accuracy, precision, recall, f1):
         
         #from sklearn import metrics
         import scikitplot as skplt
+
+        #accuracy, precision, recall, f1 = self.model_info()
 
         model = self.load_model()
 
@@ -175,6 +179,10 @@ class RF_classifer():
         skplt.metrics.plot_roc(y_test, y_probas, ax=axs[2]) #For balanced data
         skplt.metrics.plot_precision_recall(y_test, y_probas, ax=axs[0]) #for imbalanced data
         skplt.metrics.plot_confusion_matrix(y_test, y_pred, ax = axs[3])
+
+        figs.suptitle(f'Random Forest Classifier (solar_max) \n'
+                f'Accuracy: {accuracy} Precision: {precision} Recall: {recall} '
+                f'F1: {f1}')
 
         plt.tight_layout()
         plt.show()
@@ -190,10 +198,10 @@ X_train, y_train = rf.resample_class(X_train, y_train)
 #save model
 model_name = today + '_rf_solar_max.pkl'
 model_pathfile = path + 'ML-models/' + model_name
-model = rf.build_rf_model(X_train, y_train)
+#model = rf.build_rf_model(X_train, y_train)
 
 #load model
-rf_model = rf.model_info(feature_labs) #model info
-rf_model = rf.plot_rf(feature_labs) #plot model
+accuracy, precision, recall, f1 = rf.model_info(feature_labs) #model info
+rf_model = rf.plot_rf(feature_labs, accuracy, precision, recall, f1) #plot model
 
 #print(feat_eng)

@@ -53,22 +53,26 @@ df_ibi = pd.DataFrame({"A": ["foo", "foo", "foo", "foo", "foo",
                    "D": [1, 2, 2, 3, 3, 4, 5, 6, 7],
                    "E": [2, 4, 5, 5, 6, 6, 8, 9, 9]})
 
+print(df_ibi)
+df_ibi['D'] = np.log10(df_ibi['D'])
+print(df_ibi)
+
+
 from pathlib import Path
 path = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/'
         'Missions/SWARM/Non-Flight Data/Analysis/Feb-22/data/solar_max/')
 #df = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/earthquakes-23k.csv')
 
 dir_suffix='2015'
-classified_output = str(path) +'/classified/'+'EPB-sg-classified_'+dir_suffix+'.csv'
+#classified_output = str(path) +'/classified/'+'EPB-sg-classified_'+dir_suffix+'.csv'
 
-df = pd.read_csv(classified_output)
+#df = pd.read_csv(classified_output)
 
-print(df)
+#print(df)
 
-import plotly.express as px
-fig = px.density_mapbox(df, lat='lat', lon='long', z='b_ind', radius=10,
-                        center=dict(lat=0, lon=180), zoom=0,
-                        mapbox_style="stamen-terrain")
+# import plotly.express as px
+# fig = px.density_mapbox(df, lat='lat', lon='long', z='b_ind', radius=10,
+#                         center=dict(lat=0, lon=180), zoom=0,
+#                         mapbox_style="stamen-terrain")
 
-      
-fig.show()
+# fig.show()

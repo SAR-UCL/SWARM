@@ -250,6 +250,7 @@ class extraction():
         ibi_arr = []
         ibi_files = ibi_dir.glob('**/*.cdf')
         for i in ibi_files:
+            print('Starting extraction...')
             cdf_ibi = cdflib.CDF(i)
             ibi_arr.append(self.IBI_data(cdf_ibi,i))
 
@@ -273,11 +274,12 @@ class extraction():
                     for k in mag_files:
                         cdf_mag = cdflib.CDF(k)
                         mag_arr.append(self.MAG_data(cdf_mag, k))
-                        mag_data = pd.concat(mag_arr)
 
-                    efi_data = pd.concat(efi_arr)
+            mag_data = pd.concat(mag_arr)
+
+            efi_data = pd.concat(efi_arr)
                 
-                lp_data = pd.concat(lp_arr)
+            lp_data = pd.concat(lp_arr)
             
             ibi_data = pd.concat(ibi_arr)
 
@@ -313,7 +315,7 @@ extract = extraction()
 
 multi_data = extract.get_instru_data(IBI_dir, LP_dir, EFI_dir, MAG_dir)
 print(multi_data)
-multi_data.to_csv(joined_output, index=False, header = True)
+#multi_data.to_csv(joined_output, index=False, header = True)
 print('data exported')
 
 #######

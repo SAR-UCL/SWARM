@@ -3,18 +3,18 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
 import numpy as np
-pd.set_option('display.max_rows', None) #or 10 or None
+pd.set_option('display.max_rows', 10) #or 10 or None
 
 
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/systematic/test_set/'
-load_data = path + 'test_set.csv'
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Mar-22/data/train-test-sg/'
+load_data = path + 'train-test_set.csv'
 df = pd.read_csv(load_data)
 
 #df = df[['date','utc','mlt','lat','long','s_id','pass','Ne','Ti','pot','id','epb_gt']]
 
-test_id =  10
+test_id =  13
 df = df[df['id']==test_id]
-#print(df)
+print(df)
 
 from sklearn.preprocessing import StandardScaler
 x_data = df[['Ne','pot']]
@@ -23,7 +23,7 @@ scaler.fit(x_data) #compute mean for removal and std
 x_data = scaler.transform(x_data)
 ne_scale = [a[0] for a in x_data]
 df['Ne_scale'] = ne_scale
-print(df)
+#print(df)
 
 '''
 figs, axs = plt.subplots(ncols=1, nrows=2, figsize=(8,5), 
@@ -64,12 +64,13 @@ def savitzky_golay(df):
 
     from scipy.signal import savgol_filter
     
-    df['Ne_savgol'] = savgol_filter(df['Ne_scale'], window_length=23,
+    #df['Ne'] = np.log10(df['Ne'])
+    df['Ne_savgol'] = savgol_filter(df['Ne'], window_length=23,
         polyorder = 2) #Ne do not change
     df['Ti_savgol'] = savgol_filter(df['Ti'], 51, 4)
     df['pot_savgol'] = savgol_filter(df['pot'], 51, 4)
 
-    df['Ne_resid'] = df['Ne_scale'] - df['Ne_savgol']
+    df['Ne_resid'] = df['Ne'] - df['Ne_savgol']
     df['Ti_resid'] = df['Ti'] - df['Ti_savgol']
     df['pot_resid'] = df['pot'] - df['pot_savgol']
 
@@ -187,8 +188,9 @@ def gauss_window(df):
 #df['Ne_resid'] = df['pot'] - df['Ne_savgol']
 
 def sovgol_epb(x):
-    #if x > 10000 or x < -10000:
-    if x > 0.05 or x < -0.05:
+    if x > 10000 or x < -10000:
+    #if x > 0.05 or x < -0.05:
+    #if x > 0.01 or x < -0.01:
         return 1
     else:
          return 0
@@ -209,7 +211,7 @@ df['sovgol_epb'] = df.apply(lambda x: sovgol_epb(x['Ne_resid']), axis=1)
 df['sovgal_epb_ti'] = df.apply(lambda x: sovgol_epb_ti(x['Ti_resid']), axis=1)
 df['sovgal_epb_pot'] = df.apply(lambda x: sovgol_epb_pot(x['pot_resid']), axis=1)
 
-print(df)
+#print(df)
 
 
 
