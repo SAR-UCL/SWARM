@@ -12,9 +12,9 @@ df = pd.read_csv(load_data)
 
 #df = df[['date','utc','mlt','lat','long','s_id','pass','Ne','Ti','pot','id','epb_gt']]
 
-test_id =  13
+test_id =  16
 df = df[df['id']==test_id]
-print(df)
+#print(df)
 
 from sklearn.preprocessing import StandardScaler
 x_data = df[['Ne','pot']]
@@ -65,18 +65,23 @@ def savitzky_golay(df):
     from scipy.signal import savgol_filter
     
     #df['Ne'] = np.log10(df['Ne'])
+    #df['Ne_savgol'] = savgol_filter(df['Ne'], window_length=23,
+    #    polyorder = 3) #Ne do not change
+
     df['Ne_savgol'] = savgol_filter(df['Ne'], window_length=23,
-        polyorder = 2) #Ne do not change
-    df['Ti_savgol'] = savgol_filter(df['Ti'], 51, 4)
-    df['pot_savgol'] = savgol_filter(df['pot'], 51, 4)
+        polyorder = 2) #Ne do not change    
+    #df['Ti_savgol'] = savgol_filter(df['Ti'], 51, 4)
+    #df['pot_savgol'] = savgol_filter(df['pot'], 51, 4)
 
     df['Ne_resid'] = df['Ne'] - df['Ne_savgol']
-    df['Ti_resid'] = df['Ti'] - df['Ti_savgol']
-    df['pot_resid'] = df['pot'] - df['pot_savgol']
+    #df['Ti_resid'] = df['Ti'] - df['Ti_savgol']
+    #df['pot_resid'] = df['pot'] - df['pot_savgol']
 
-    df['ne_ti_corr'] = df['Ne_resid'].rolling(window=10).corr(df['Ti_resid'])
+    #df['ne_ti_corr'] = df['Ne_resid'].rolling(window=10).corr(df['Ti_resid'])
 
     df = df.dropna()
+
+
 
     
     return df
@@ -105,8 +110,8 @@ def covar_corr(df):
 
 def calc_ROC_pt(df):
     #Rate of change cm/s or k/s or pot/s
-    pc_df = df[['Ne','pot','Ti']].pct_change(periods=1) #change in seconds
-    pc_df = pc_df.rename(columns = {"Ne":"Ne_c", "pot":"pot_c","Ti":"Ti_c"}) 
+    pc_df = df[['Ne']].pct_change(periods=1) #change in seconds
+    pc_df = pc_df.rename(columns = {"Ne":"Ne_c"}) 
     df = pd.concat([df, pc_df], axis=1)
 
     df = df.dropna()
@@ -119,9 +124,9 @@ def stddev_window(df):
 
     df = calc_ROC_pt(df)
 
-    std_df = df[['Ne_c','pot_c','Ti_c']].rolling(5).std()
+    std_df = df[['Ne_c']].rolling(20).std()
     #std_df = df[['Ne_c','pot_c']].rolling(20, win_type='gaussian').sum(std=3)
-    std_df = std_df.rename(columns = {"Ne_c":"Ne_std", "pot_c":"pot_std","Ti_c":"Ti_std"}) 
+    std_df = std_df.rename(columns = {"Ne_c":"Ne_std"}) 
     df = pd.concat([df,std_df], axis = 1)
 
     #df = df.drop(columns=['Ne_c','pot_c'])
@@ -151,90 +156,56 @@ def stddev_window(df):
             return 0
 
 
-    df['std_ne'] = df['Ne_std'].apply(stddev_ne)
-    df['std_pot'] = df['pot_std'].apply(stddev_pot)
-    df['std_ti'] = df['Ti_std'].apply(stddev_ti)
-    df['std_savgol'] = df['sg_std'].apply(stddev_sg)
+    #df['std_ne'] = df['Ne_std'].apply(stddev_ne)
+   # df['std_pot'] = df['pot_std'].apply(stddev_pot)
+   # df['std_ti'] = df['Ti_std'].apply(stddev_ti)
+   # df['std_savgol'] = df['sg_std'].apply(stddev_sg)
 
     df = df.dropna()
 
     return df
 
-#df = stddev_window(df)
+df = stddev_window(df)
 
-def gauss_window(df):
 
-    #std_df = df[['Ne_c','pot_c']].rolling(10).std()
-    std_df = df[['Ne_c','pot_c']].rolling(10).min()
-    #std_df = df[['Ne_c','pot_c']].rolling(5, win_type='gaussian').sum(std=2)
-    std_df = std_df.rename(columns = {"Ne_c":"Ne_gau", "pot_c":"pot_gau"}) 
-    df = pd.concat([df,std_df], axis = 1)
-
-    #df = df.drop(columns=['Ne_c','pot_c'])
-
-    def stddev_check(x):
-        if -0.001 <= x < 0:
-            return 1
-        else:
-            return 0
-
-    df['gauss'] = df['Ne_gau'].apply(stddev_check)
-
-    df = df.dropna()
-
-    return df
-
-#df = gauss_window(df)
-#df['Ne_resid'] = df['pot'] - df['Ne_savgol']
 
 def sovgol_epb(x):
     if x > 10000 or x < -10000:
-    #if x > 0.05 or x < -0.05:
-    #if x > 0.01 or x < -0.01:
         return 1
     else:
          return 0
 
-def sovgol_epb_ti(x):
-    if x > 10 or x < -10:
-        return 1
-    else:
-        return 0
-
-def sovgol_epb_pot(x):
-    if x > 0.05 or x < -0.05:
-        return 1
-    else:
-        return 0
-
 df['sovgol_epb'] = df.apply(lambda x: sovgol_epb(x['Ne_resid']), axis=1)
-df['sovgal_epb_ti'] = df.apply(lambda x: sovgol_epb_ti(x['Ti_resid']), axis=1)
-df['sovgal_epb_pot'] = df.apply(lambda x: sovgol_epb_pot(x['pot_resid']), axis=1)
-
-#print(df)
+#df['sovgal_epb_ti'] = df.apply(lambda x: sovgol_epb_ti(x['Ti_resid']), axis=1)
+#df['sovgal_epb_pot'] = df.apply(lambda x: sovgol_epb_pot(x['pot_resid']), axis=1)
 
 
-
-# plt.figure(1)
-# plt.plot(df['lat'], df['Ne'], label="Ne")
-# plt.plot(df['lat'], df['Ne_savgol'], label="Ne SavGol")
-# plt.legend()
-# plt.show()
-
-
-#print(df)
-#df['func_score'] = df.apply(lambda x: savitzky_golay(x['Ne']), axis=1)
-
-def ne_pot_combine(ne, pot):
-    if ne and pot == 1:
+def smooth_savgol(x, y, z):
+    if x == 1:
+        return 1
+    elif y + z == -2:
         return 1
     else:
         return 0
 
-#df['ne_pot'] = df.apply(lambda x: ne_pot_combine(x['std_ne'], 
-#         x['std_pot']), axis=1)
-         
+df['u_c'] = df['sovgol_epb'] - df['sovgol_epb'].shift(1)
+df['l_c'] = df['sovgol_epb'] - df['sovgol_epb'].shift(-1)
 
+df['sovgol_epb'] = df.apply(lambda x: smooth_savgol(x['sovgol_epb'], 
+        x['u_c'], x['l_c']), axis=1)
+
+#value = 0.2 #0.2 works for tests 1-10
+value = 0.2
+if df['Ne_std'].max() > value:
+    print(f'greater than {value}')
+else:
+        
+    def wipe_sg(x):
+        x = 0
+        return x
+    
+    df['sovgol_epb'] = df['sovgol_epb'].apply(wipe_sg)
+    
 def check_function(x,y):
     if x == 1 and y == 1:
         return 'true pos'
@@ -248,15 +219,17 @@ def check_function(x,y):
         return 0 
 
 df['func_score'] = df.apply(lambda x: check_function(x['epb_gt'], 
-         x['sovgol_epb']), axis=1)
+        x['sovgol_epb']), axis=1)
 
+
+print(df)
 #df['func_score'] = df.apply(lambda x: check_function(x['epb_gt'], 
 #         x['covar_epb']), axis=1)
 
 scores = df.groupby('func_score').size()
 #print(scores)
 
-if test_id == 2 or test_id == 6 or test_id == 7 or test_id == 6:
+if test_id == 2 or test_id == 6 or test_id == 7 or test_id == 13 or test_id==14 or test_id == 15 or test_id == 16:
 #if test_id == 10:
     print('Scores',scores)
     precision = 0 / (1 + 0)
@@ -280,10 +253,12 @@ else:
 
 def plotNoStdDev(df):
         
-        figs, axs = plt.subplots(ncols=1, nrows=5, figsize=(8,5), 
+        figs, axs = plt.subplots(ncols=1, nrows=5, figsize=(7,5), 
         dpi=90, sharex=True) #3.5 for single, #5.5 for double
         axs = axs.flatten()
-
+        
+        df = df[df['lat'].between(-10,30)]
+        
         x = 'lat'
         hue = 's_id'
 
@@ -292,14 +267,14 @@ def plotNoStdDev(df):
                 palette = 'bone',hue = hue, legend=False)
 
         ax1y = 'Ne_savgol'
-        sns.lineplot(ax = axs[1], data = df, x =x, y =ax1y,
+        sns.lineplot(ax = axs[0], data = df, x =x, y =ax1y,
                 palette = 'Set1', hue = hue, legend=False)
 
-        ax2y = 'Ne_scale'
+        ax2y = 'Ne_resid'
         sns.lineplot(ax = axs[1], data = df, x = x, y =ax2y, 
                 palette = 'bone', hue = hue, legend = False)
 
-        ax3y = 'Ne_resid'
+        ax3y = 'Ne_std'
         sns.lineplot(ax = axs[2], data = df, x = x, y =ax3y, 
                 palette = 'Set2', hue = hue, legend = False)
 
@@ -307,9 +282,13 @@ def plotNoStdDev(df):
         sns.lineplot(ax = axs[3], data = df, x = x, y =ax4y, 
                 palette = 'rocket', hue = hue, legend = False)
 
-        ax4y = 'sovgol_epb'
-        sns.lineplot(ax = axs[4], data = df, x = x, y =ax4y, 
+        ax5y = 'sovgol_epb'
+        sns.lineplot(ax = axs[4], data = df, x = x, y =ax5y, 
                 palette = 'rocket', hue = hue, legend = False)
+
+        #ax6y = 'sovgol_epb'
+        #sns.lineplot(ax = axs[5], data = df, x = x, y =ax5y, 
+        #        palette = 'rocket', hue = hue, legend = False)
 
         #axs3 = axs[2].twinx()
         #sns.lineplot(ax = axs3, data = df, x = x, y ='epb_gt', 
@@ -336,26 +315,31 @@ def plotNoStdDev(df):
         axs[0].set_ylabel(f'{ax0y}')
         axs[0].tick_params(bottom = False)
         axs[0].set_yscale('log')
+        #axs[0].set_ylim([1e6, 5e6])
         
-        axs[1].set_ylabel(f'{ax1y}')
+        axs[1].set_ylabel(f'{ax2y}')
         axs[1].tick_params(bottom = False)
         #axs[2].set_yscale('log')
         
-        axs[2].set_ylabel(f'{ax2y}')
+        axs[2].set_ylabel(f'{ax3y}')
         axs[2].tick_params(bottom = False)
 
-        axs[3].set_ylabel(f'{ax3y}')
+        axs[3].set_ylabel(f'{ax4y}')
         axs[3].tick_params(bottom = False)
 
-        axs[4].set_ylabel(f'{ax3y}')
+        axs[4].set_ylabel(f'{ax5y}')
         axs[4].tick_params(bottom = False)
+
+        #axs[5].set_ylabel(f'{ax6y}')
+        #axs[5].tick_params(bottom = False)
 
         #axs3.set_ylabel('Actual (Green)')
 
         ax = plt.gca()
-        ax.invert_xaxis()
+        #ax.invert_xaxis()
+
 
         plt.tight_layout()
         plt.show()
 
-#plotNoStdDev(df)
+plotNoStdDev(df)

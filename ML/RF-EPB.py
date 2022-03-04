@@ -26,12 +26,14 @@ file_name = 'wrangled-EPB-'+ today +'.h5'
 #load_hdf = pd.read_hdf(load_hdf)
 
 path = (r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions'
-        '/SWARM/Non-Flight Data/Analysis/Feb-22/data/solar_max/classified/')
+        '/SWARM/Non-Flight Data/Analysis/Mar-22/data/solar_max/ml_model/')
 
-filename = path + 'EPB-sg-classified-filter_2015.csv'
+filename = path + 'ml-2015_wo-std.csv'
 load_hdf = pd.read_csv(filename)
 
+print('loading data...')
 #print(load_hdf)
+
 
 class RF_classifer():
 
@@ -76,7 +78,7 @@ class RF_classifer():
         print('splitting data...')
 
         X_train, X_test, y_train, y_test = train_test_split(x_data, y_data, 
-                test_size = 0.1, random_state=42) #test 0.2 = 20%
+                test_size = 0.1, random_state=42)
 
         #print(len(X_train))
         return X_train, X_test, y_train, y_test
@@ -93,8 +95,8 @@ class RF_classifer():
         sm = SMOTE(random_state = 42)
         X_rs, y_rs = sm.fit_resample(X,y)
 
-        #print('Orignal data shape%s' %Counter(y))
-        #print('Resampled data shape%s' %Counter(y_rs))
+        print('Orignal data shape%s' %Counter(y))
+        print('Resampled data shape%s' %Counter(y_rs))
         
         return X_rs, y_rs
 
@@ -196,10 +198,11 @@ X_train, X_test, y_train, y_test = rf.train_test_split(x_data, y_data)
 X_train, y_train = rf.resample_class(X_train, y_train)
 
 #save model
-model_name = today + '_rf_solar_max.pkl'
-model_pathfile = path + 'ML-models/' + model_name
-#model = rf.build_rf_model(X_train, y_train)
+model_name = 'rf_2015_wo-std.pkl'
+model_pathfile = path + model_name
+model = rf.build_rf_model(X_train, y_train)
 
+#load model
 #load model
 accuracy, precision, recall, f1 = rf.model_info(feature_labs) #model info
 rf_model = rf.plot_rf(feature_labs, accuracy, precision, recall, f1) #plot model

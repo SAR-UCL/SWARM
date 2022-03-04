@@ -18,20 +18,19 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import gridspec
 import seaborn as sns
-pd.set_option('display.max_rows', 10) #or 10 or None
+pd.set_option('display.max_rows', None) #or 10 or None
 
 path = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/'
-        'Missions/SWARM/Non-Flight Data/Analysis/Feb-22/data/solar_max/')
+        'Missions/SWARM/Non-Flight Data/Analysis/Mar-22/data/solar_max/')
 
-dir_suffix = '2014'
-load_all = str(path) + '/' + '2014-data-2022-02-18.csv'
+dir_suffix = '2015'
+load_all = str(path) + '/' + dir_suffix +'-data-2022-03-03.csv'
 epb_mssl_output = str(path) +'/EPB_counts/'+'EPB-count-MSSL_'+dir_suffix+'.csv'
 epb_ibi_output = str(path) +'/EPB_counts/'+'EPB-count-IBI_'+dir_suffix+'.csv'
-classified_output = str(path) +'/classified/'+'EPB-sg-classified_'+dir_suffix+'.csv'
-filter_classified_output = str(path) +'/classified/'+'EPB-sg-classified-filter_'+dir_suffix+'.csv'
+classified_output = str(path) +'/classified/'+'EPB-sg-classified_no_std_'+dir_suffix+'.csv'
+filter_classified_output = str(path) +'/classified/'+'EPB-sg-classified_filter_'+dir_suffix+'.csv'
 
 #for testing. Quicker to load
-
 #classified_output = str(path) +'/classified/'+'EPB-sg-classified_indie_'+dir_suffix+'.csv'
 
 def open_all(filename):
@@ -49,16 +48,21 @@ class classify_epb():
         #for testing
         #df = open_all(classified_output)
         #df = df.drop(columns=['Ne_savgol','Ne_resid','sg_epb','sg_smooth'])
+        #df = df.drop(columns=['pot_std','Te_std','Ti_std','alt'])
+        #df = df.drop(columns=['Ne_pc','Ne_stddev'])
         #print(df)
         
         #full dataset
         df = open_all(load_all)
 
         print('Filtering data...')
+        #df = df.drop(columns=['pot_std','Te_std','Ti_std','alt'])
         df = df[df['b_ind']!=-1]
         df = df[df['lat'].between(-35,35)]
-        df = df[df['date'] == '2015-03-18']
-        #df = df[df['p_num'] == 3474]
+        #df = df[df['date'] == '2014-02-03']
+        #df = df[df['p_num'] == 641]
+
+        #print(df)
         
         df_sg = df.groupby('p_num')
         df_arr_count = []
@@ -70,12 +74,18 @@ class classify_epb():
 
                 print('Classifying pass', name)
 
-                def savitzky_golay(df):
-                    from scipy.signal import savgol_filter
-                    df['Ne_savgol'] = savgol_filter(df['Ne'], window_length=23,
-                        polyorder = 2) 
-                    df['Ne_resid'] = df['Ne'] - df['Ne_savgol']
-                    df.dropna()
+                def classify_ne(df):
+
+                    def savitzky_golay(df):
+                        from scipy.signal import savgol_filter
+                        df['Ne_savgol'] = savgol_filter(df['Ne'], window_length=23,
+                            polyorder = 2) 
+                        df['Ne_resid'] = df['Ne'] - df['Ne_savgol']
+                        df.dropna()
+
+                        return df
+
+                    df = savitzky_golay(df)
 
                     def sovgol_epb(x):
                         if x > 10000 or x < -10000: #non-norm
@@ -93,7 +103,7 @@ class classify_epb():
                             return 1
                         else:
                             return 0
-
+                    
                     df['u_c'] = df['sg_epb'] - df['sg_epb'].shift(1)
                     df['l_c'] = df['sg_epb'] - df['sg_epb'].shift(-1)
 
@@ -103,13 +113,38 @@ class classify_epb():
                     #df = df.drop(columns=['u_c','l_c','pot_std','Te_std','Ti_std'])
                     df = df.drop(columns=['u_c','l_c'])
 
-                    
-                    df_arr_sg.append(df)
+                    def std_dev_check(df):
 
+                       #std dev filter to remove false positives
+                       #if stddev is greater than value, then use sg-filter
+                       #else overite sg-filter with 0
+                        
+                        window = 20
+                        df['Ne_pc'] = df['Ne'].pct_change(periods=1)
+                        df['Ne_stddev'] = df['Ne_pc'].rolling(window).std()
+                        df = df.dropna()
+
+                        value = 0.2
+                        if df['Ne_stddev'].max() > value:
+                            #print(f'greater than {value}')
+                            pass
+                        else:
+                            #print(f'smaller than {value}')
+                            df = df.loc[df['sg_smooth'] == 0]
+
+                            pass
+                            
+                        return df
+                    
+                    #df = std_dev_check(df)
+
+                    #append to list
+                    df_arr_sg.append(df)
                     return df_arr_sg
                 
-                classified_epb_sg = savitzky_golay(class_group)
+                classified_epb_sg = classify_ne(class_group)
                 
+
                 #ibi_epb_count = mssl_epb_counter(classified_epb_sg, 'b_ind')
 
             except:
@@ -129,8 +164,9 @@ class classify_epb():
         
         df_arr_mssl_count = []
         df_arr_ibi_count = []
-        df_arr_mssl_cont = []
+        #df_arr_mssl_cont = []
 
+        
         for name, count_group in df_count:
 
             try:
@@ -148,10 +184,10 @@ class classify_epb():
                         else:
                             return 0
 
-                    if classifier == 'sg_smooth':
-                        df = df[~df[classifier].between(1,50)]
-                    else:
-                        pass
+                    #if classifier == 'sg_smooth':
+                    #    df = df[~df[classifier].between(1,50)]
+                    #else:
+                    #    pass
 
                     df['epb_num'] = df[classifier].apply(count_epb)
                     df = df.rename(columns={df.columns[2]:'epb_size'})
@@ -176,13 +212,16 @@ class classify_epb():
         mssl_epb_df = pd.concat(mssl_epb_count, ignore_index=True)
         ibi_epb_df = pd.concat(ibi_epb_count, ignore_index=True)
 
+        #mssl_epb_df = 1
+        #ibi_epb_df = 1
+
         #df = df.sort_values(by=['date','p_num'], ascending=[True,True])
         
         #Export the dataframes
         print('Exporting dataframes...')
-        #classified_df.to_csv(classified_output, index=False, header = True)
-        #mssl_epb_df.to_csv(epb_mssl_output, index=False, header = True)
-        #ibi_epb_df.to_csv(epb_ibi_output, index=False, header = True)
+        classified_df.to_csv(classified_output, index=False, header = True)
+        mssl_epb_df.to_csv(epb_mssl_output, index=False, header = True)
+        ibi_epb_df.to_csv(epb_ibi_output, index=False, header = True)
         
         print('Dataframe exported.')
         return classified_df, mssl_epb_df, ibi_epb_df
@@ -209,14 +248,14 @@ class classify_epb():
                 return 0
             elif x == 0 and y == 0: #Drop days without epb
                 return 0
-            elif x < 5 or y < 5: #keep only days with 5+ epb events
-                return 0
+            #elif x < 5 or y < 5: #keep only days with 5+ epb events
+            #    return 0
             else:
                 return 1
         
-        #df_m['date_check'] = df_m.apply(lambda x: remove_zero_days(x['epb_num_x'],
-        #        x['epb_num_y']), axis=1)
-        #df_m = df_m[df_m['date_check'] !=0 ]
+        df_m['date_check'] = df_m.apply(lambda x: remove_zero_days(x['epb_num_x'],
+                x['epb_num_y']), axis=1)
+        df_m = df_m[df_m['date_check'] !=0 ]
 
 
         #split them back up
@@ -298,7 +337,7 @@ class classify_epb():
 
         print('Exporting dataframe...')
         df.to_csv(filter_classified_output, index=False, header = True)
-        print('Dataframe exported.')
+        print('Filtered dataframe exported.')
 
 #ebuild_sg_df(retained_dates)
 classify = classify_epb()
@@ -308,9 +347,9 @@ classify = classify_epb()
 #print('IBI count\n',ibi_epb_count)
 
 #EPB counter (how many EPB events per day)
-#df_mssl, df_ibi = classify.filter_epb('epb_num','epb_num')
-#mssl_ibi, pv_mssl, pv_ibi, retained_dates, year = classify.pivot_epb(df_mssl, df_ibi,"epb_num")
-#classify.rebuild_sg_df(mssl_ibi, retained_dates)
+df_mssl, df_ibi = classify.filter_epb('epb_num','epb_num')
+mssl_ibi, pv_mssl, pv_ibi, retained_dates, year = classify.pivot_epb(df_mssl, df_ibi,"epb_num")
+classify.rebuild_sg_df(mssl_ibi, retained_dates)
 
 #EPB continuous data (how large is each point?)
 #df_mssl, df_ibi = classify.filter_epb('epb_size','epb_size')
@@ -338,8 +377,9 @@ def panel_plot(dpi):
 
         #print(df)
 
-        df = open_all(classified_output)
-        df = df[df['p_num'] == 1694]
+        #df = open_all(classified_output)
+        #df = df[df['p_num'] == 1694]
+        df = full_df_mssl_classified
 
         figs, axs = plt.subplots(ncols=1, nrows=4, figsize=(8,4.5), 
         dpi=dpi, sharex=True) #3.5 for single, #5.5 for double
@@ -393,7 +433,7 @@ def panel_plot(dpi):
         axs[0].tick_params(bottom = False)
         axs[0].set_yscale('log')
         axs[0].set_ylabel(f'Ne \n ({den})')
-        axs[0].set_ylim([1e4, 4e6])
+        #axs[0].set_ylim([1e4, 4e6])
         
         axs[1].set_ylabel(f'{ax1y}')
         axs[1].tick_params(bottom = False)
@@ -427,7 +467,7 @@ def panel_plot(dpi):
 
         plt.show()
 
-#anel_plot(90)
+#panel_plot(90)
 
 def heatmap(df, pv_mssl, pv_ibi, year):
 
@@ -445,7 +485,7 @@ def heatmap(df, pv_mssl, pv_ibi, year):
             gridspec_kw={'width_ratios':[1,1,0.25, 1,0.25]}, figsize=(6,6.5))
 
     f.suptitle(f'Number of EPB events per day in {year}'
-           # '\n with filters applied'
+            '\n without std dev filter'
            ,fontsize=11)
     plt.subplots_adjust(top=0.85)
 
@@ -555,18 +595,19 @@ def train_test_class(dpi):
 
         df = open_all(classified_output)
         
-        df = df[df['p_num'] == 1694]
+        p_num = 1689
+        df = df[df['p_num'] == p_num]
         
         df_exp = df[['date','utc','mlt','lat','long','s_id','p_num','Ne','Ti','pot']]
-        df_exp['id'] = 13
+        df_exp['id'] = 16
         df_exp['epb_gt'] = 0
         df_exp = df_exp.reset_index().drop(columns=['index'])
 
         date = df_exp['date'].iloc[0]
         path_e = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Mar-22/data/train-test-sg/new_additions/'
         
-        export = path_e + date + '_test_train.csv'
-        df_exp.to_csv(export, index=False, header = True)
+        export = path_e + date + '_' + str(p_num) + '_test_train.csv'
+        #df_exp.to_csv(export, index=False, header = True)
 
         print(df_exp)
 
@@ -624,7 +665,7 @@ def train_test_class(dpi):
         axs[0].tick_params(bottom = False)
         axs[0].set_yscale('log')
         axs[0].set_ylabel(f'Ne \n ({den})')
-        axs[0].set_ylim([1e4, 4e6])
+        #axs[0].set_ylim([1e4, 4e6])
         
         axs[1].set_ylabel(f'{ax1y}')
         axs[1].tick_params(bottom = False)
@@ -646,7 +687,7 @@ def train_test_class(dpi):
                 enumerate(axs[3].yaxis.get_ticklabels()) if i % n != 0]
 
         ax = plt.gca()
-        ax.set_xlim([-40, 40])
+        ax.set_xlim([-30, 30])
         #ax.invert_xaxis()
 
         plt.tight_layout()
@@ -658,4 +699,4 @@ def train_test_class(dpi):
 
         plt.show()
 
-train_test_class(90)
+#train_test_class(90)

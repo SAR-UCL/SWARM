@@ -57,6 +57,12 @@ print(df_ibi)
 df_ibi['D'] = np.log10(df_ibi['D'])
 print(df_ibi)
 
+if df_ibi['D'].max() > 0.84:
+      print('over 1')
+else:
+      print('less than 1')
+#df_max = df_ibi['D'].max()
+#print(df_max)
 
 from pathlib import Path
 path = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/'
