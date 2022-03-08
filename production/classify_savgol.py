@@ -23,7 +23,7 @@ pd.set_option('display.max_rows', None) #or 10 or None
 path = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/'
         'Missions/SWARM/Non-Flight Data/Analysis/Mar-22/data/solar_max/')
 
-dir_suffix = '2014'
+dir_suffix = '2015'
 load_all = str(path) + '/' + dir_suffix +'-data-2022-03-03.csv'
 #epb_mssl_output = str(path) +'/EPB_counts/'+'EPB-count-MSSL_'+dir_suffix+'.csv'
 #epb_ibi_output = str(path) +'/EPB_counts/'+'EPB-count-IBI_'+dir_suffix+'.csv'
@@ -549,7 +549,9 @@ def heatmap(df, pv_mssl, pv_ibi, year):
 #df_ibi = open_all(epb_ibi_output)
 #heatmap(mssl_ibi, pv_mssl, pv_ibi, year)
 
-def determine_epb_intensity(df):
+def determine_epb_intensity():
+
+    df = open_all(filter_classified_output)
     
     df['lat'] = df['lat'].round(0)
     df['long'] = df['long'].round(0)
@@ -587,8 +589,9 @@ def determine_epb_intensity(df):
     fig.show()
     return fig
 
-full_df_mssl_classified = open_all(filter_classified_output)
-determine_epb_intensity(full_df_mssl_classified)
+#full_df_mssl_classified = open_all(classified_output)
+#print(full_df_mssl_classified)
+#determine_epb_intensity()
 
 def train_test_class(dpi):
 
