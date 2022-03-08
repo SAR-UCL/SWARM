@@ -23,15 +23,15 @@ pd.set_option('display.max_rows', None) #or 10 or None
 path = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/'
         'Missions/SWARM/Non-Flight Data/Analysis/Mar-22/data/solar_max/')
 
-dir_suffix = '2015'
+dir_suffix = '2014'
 load_all = str(path) + '/' + dir_suffix +'-data-2022-03-03.csv'
-epb_mssl_output = str(path) +'/EPB_counts/'+'EPB-count-MSSL_'+dir_suffix+'.csv'
-epb_ibi_output = str(path) +'/EPB_counts/'+'EPB-count-IBI_'+dir_suffix+'.csv'
-classified_output = str(path) +'/classified/'+'EPB-sg-classified_no_std_'+dir_suffix+'.csv'
+#epb_mssl_output = str(path) +'/EPB_counts/'+'EPB-count-MSSL_'+dir_suffix+'.csv'
+#epb_ibi_output = str(path) +'/EPB_counts/'+'EPB-count-IBI_'+dir_suffix+'.csv'
+#classified_output = str(path) +'/classified/'+'EPB-sg-classified_no_std_'+dir_suffix+'.csv'
 filter_classified_output = str(path) +'/classified/'+'EPB-sg-classified_filter_'+dir_suffix+'.csv'
 
 #for testing. Quicker to load
-#classified_output = str(path) +'/classified/'+'EPB-sg-classified_indie_'+dir_suffix+'.csv'
+classified_output = str(path) +'/classified/'+'EPB-sg-classified_indie_'+dir_suffix+'.csv'
 
 def open_all(filename):
     print('Loading data...')
@@ -59,7 +59,7 @@ class classify_epb():
         #df = df.drop(columns=['pot_std','Te_std','Ti_std','alt'])
         df = df[df['b_ind']!=-1]
         df = df[df['lat'].between(-35,35)]
-        #df = df[df['date'] == '2014-02-03']
+        df = df[df['date'] == '2014-09-27']
         #df = df[df['p_num'] == 641]
 
         #print(df)
@@ -136,7 +136,7 @@ class classify_epb():
                             
                         return df
                     
-                    #df = std_dev_check(df)
+                    df = std_dev_check(df)
 
                     #append to list
                     df_arr_sg.append(df)
@@ -219,9 +219,9 @@ class classify_epb():
         
         #Export the dataframes
         print('Exporting dataframes...')
-        classified_df.to_csv(classified_output, index=False, header = True)
-        mssl_epb_df.to_csv(epb_mssl_output, index=False, header = True)
-        ibi_epb_df.to_csv(epb_ibi_output, index=False, header = True)
+        #classified_df.to_csv(classified_output, index=False, header = True)
+        #mssl_epb_df.to_csv(epb_mssl_output, index=False, header = True)
+        #ibi_epb_df.to_csv(epb_ibi_output, index=False, header = True)
         
         print('Dataframe exported.')
         return classified_df, mssl_epb_df, ibi_epb_df
@@ -340,16 +340,16 @@ class classify_epb():
         print('Filtered dataframe exported.')
 
 #ebuild_sg_df(retained_dates)
-classify = classify_epb()
+#classify = classify_epb()
 #full_df_mssl_classified, mssl_epb_count, ibi_epb_count= classify.ibi_mssl_epb_compare()
 #print(full_df_mssl_classified)
 #print('MSSL count\n',mssl_epb_count)
 #print('IBI count\n',ibi_epb_count)
 
 #EPB counter (how many EPB events per day)
-df_mssl, df_ibi = classify.filter_epb('epb_num','epb_num')
-mssl_ibi, pv_mssl, pv_ibi, retained_dates, year = classify.pivot_epb(df_mssl, df_ibi,"epb_num")
-classify.rebuild_sg_df(mssl_ibi, retained_dates)
+#df_mssl, df_ibi = classify.filter_epb('epb_num','epb_num')
+#mssl_ibi, pv_mssl, pv_ibi, retained_dates, year = classify.pivot_epb(df_mssl, df_ibi,"epb_num")
+#classify.rebuild_sg_df(mssl_ibi, retained_dates)
 
 #EPB continuous data (how large is each point?)
 #df_mssl, df_ibi = classify.filter_epb('epb_size','epb_size')
@@ -377,9 +377,10 @@ def panel_plot(dpi):
 
         #print(df)
 
-        #df = open_all(classified_output)
-        #df = df[df['p_num'] == 1694]
-        df = full_df_mssl_classified
+        df = open_all(classified_output)
+        df = df[df['p_num'] == 2495]
+        #df = full_df_mssl_classified
+        print(df)
 
         figs, axs = plt.subplots(ncols=1, nrows=4, figsize=(8,4.5), 
         dpi=dpi, sharex=True) #3.5 for single, #5.5 for double
@@ -586,8 +587,8 @@ def determine_epb_intensity(df):
     fig.show()
     return fig
 
-#full_df_mssl_classified = open_all(filter_classified_output)
-#determine_epb_intensity(full_df_mssl_classified)
+full_df_mssl_classified = open_all(filter_classified_output)
+determine_epb_intensity(full_df_mssl_classified)
 
 def train_test_class(dpi):
 

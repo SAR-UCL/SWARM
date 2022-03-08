@@ -1,9 +1,10 @@
 '''
-    This file uses a Random Forest classifer to train a model to predict
-    EPBs    
+    This file uses a k-means classifier to assses the similarity / disimilarity 
+    between the EPB data
+
     Created by Sachin A. Reddy
 
-    Dec 2021.
+    Mar 2022.
 
 '''
 
@@ -17,14 +18,6 @@ from datetime import date
 import pickle
 
 
-#path = (r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions'
-#        '/SWARM/Non-Flight Data/Analysis/Jan-22/data/decadal/')
-
-#today =  str(date.today())
-#file_name = 'wrangled-EPB-'+ today +'.h5'
-#load_hdf = path + file_name
-#load_hdf = pd.read_hdf(load_hdf)
-
 path = (r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions'
         '/SWARM/Non-Flight Data/Analysis/Mar-22/data/solar_max/ml_model/')
 
@@ -32,8 +25,59 @@ filename = path + 'ml-2015_with-std.csv'
 load_hdf = pd.read_csv(filename)
 
 print('loading data...')
-print(load_hdf)
+#print(load_hdf)
 
+
+
+def selectNScale(df, features, y_label):
+    from sklearn.preprocessing import StandardScaler
+
+    print('re-scaling data...')
+    #Select and scale the x data
+    #features = ['long','Ne','Ti','pot']
+    x_data = df[features]
+    scaler = StandardScaler()
+    scaler.fit(x_data) #compute mean for removal and std
+    x_data = scaler.transform(x_data)
+
+    #select and flatten y data
+    #labels = y_label
+    y_data = df[[y_label]]
+    y_data = y_data[[y_label]].to_numpy()
+    y_data = np.concatenate(y_data).ravel().tolist()
+
+    return x_data, y_data
+
+y_label = 'sg_smooth'
+features = ['pot','Ne']
+x_data, y_data = selectNScale(load_hdf, features, y_label)
+
+def train_test_split(x_data, y_data):
+    from sklearn.model_selection import train_test_split
+
+    print('splitting data...')
+
+    X_train, X_test, y_train, y_test = train_test_split(x_data, y_data, 
+            test_size = 0.1, random_state=42)
+
+    #print(len(X_train))
+    return X_train, X_test, y_train, y_test
+
+X_train, X_test, y_train, y_test = train_test_split(x_data, y_data)
+
+from sklearn.cluster import KMeans
+from sklearn.metrics.pairwise import pairwise_distances_argmin
+
+k = 3
+
+kmeans = KMeans(n_clusters=k, random_state=0).fit(X_test)
+centroids = kmeans.cluster_centers_
+palette = kmeans.predict(X_test)
+
+plt.scatter(X_test[:, 0], X_test[:, 1], c=palette, s=10, cmap='viridis')
+plt.scatter(centroids[:, 0], centroids[:, 1], c='red', s=50, alpha = 0.7)
+
+plt.show()
 
 class RF_classifer():
 
@@ -77,7 +121,7 @@ class RF_classifer():
 
         print('splitting data...')
 
-        X_train, X_test, y_train, y_test = train_test_split(x_data, y_data, 
+        x_data, X_test, y_train, y_test = train_test_split(x_data, y_data, 
                 test_size = 0.1, random_state=42)
 
         #print(len(X_train))
@@ -93,14 +137,14 @@ class RF_classifer():
         #OVERSAMPLING
         #https://imbalanced-learn.org/dev/references/generated/
         #imblearn.over_sampling.SMOTE.html
-        sm = SMOTE(random_state = 42)
-        X_rs, y_rs = sm.fit_resample(X,y)
+        #sm = SMOTE(random_state = 42)
+        #X_rs, y_rs = sm.fit_resample(X,y)
         
         #UNDERSAMPLING
         #https://imbalanced-learn.org/stable/references/generated/
         #imblearn.under_sampling.NearMiss.html#imblearn.under_sampling.NearMiss
-        #nm = NearMiss()
-        #X_rs, y_rs = nm.fit_resample(X, y)
+        nm = NearMiss()
+        X_rs, y_rs = nm.fit_resample(X, y)
     
         print('Orignal data shape%s' %Counter(y))
         print('Resampled data shape%s' %Counter(y_rs))
@@ -115,8 +159,8 @@ class RF_classifer():
         #from sklearn import metrics
 
         print('creating RF...')
-        model = RandomForestClassifier(n_estimators=100, random_state=42,
-        min_samples_leaf=1, n_jobs=-1)
+        model = RandomForestClassifier(n_estimators=175, random_state=42,
+        min_samples_leaf=3)
         #model = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, 
         #        max_depth=3, random_state=42)
 
@@ -196,29 +240,22 @@ class RF_classifer():
         plt.tight_layout()
         plt.show()
 
-run = 'yes'
+# rf = RF_classifer()
+# feat_eng = rf.featureEng(load_hdf)
 
-if run == 'yes':
+# y_label = 'sg_smooth'
+# feature_labs = ['long','Ne','Ti','pot']
+# x_data, y_data, = rf.selectNScale(feat_eng, feature_labs, y_label)
+# X_train, X_test, y_train, y_test = rf.train_test_split(x_data, y_data)
+# X_train, y_train = rf.resample_class(X_train, y_train)
 
-    rf = RF_classifer()
-    feat_eng = rf.featureEng(load_hdf)
+# #save model
+# model_name = 'rf_nm_2015_MSSL_with-std.pkl'
+# model_pathfile = path + model_name
+# model = rf.build_rf_model(X_train, y_train)
 
-    y_label = 'sg_smooth'
-    feature_labs = ['long','Ne_std','Ti','pot']
-    x_data, y_data, = rf.selectNScale(feat_eng, feature_labs, y_label)
-    X_train, X_test, y_train, y_test = rf.train_test_split(x_data, y_data)
-    X_train, y_train = rf.resample_class(X_train, y_train)
+# #load model
+# accuracy, precision, recall, f1 = rf.model_info(feature_labs) #model info
+# rf_model = rf.plot_rf(feature_labs, accuracy, precision, recall, f1) #plot model
 
-    #save model
-    model_name = 'rf_2015_MSSL_ne-std.pkl'
-    model_pathfile = path + model_name
-    model = rf.build_rf_model(X_train, y_train)
-
-    #load model
-    accuracy, precision, recall, f1 = rf.model_info(feature_labs) #model info
-    rf_model = rf.plot_rf(feature_labs, accuracy, precision, recall, f1) #plot model
-
-    #print(feat_eng)
-else:
-    print('routine not run')
-    pass
+# #print(feat_eng)

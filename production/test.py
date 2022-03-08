@@ -53,32 +53,22 @@ df_ibi = pd.DataFrame({"A": ["foo", "foo", "foo", "foo", "foo",
                    "D": [1, 2, 2, 3, 3, 4, 5, 6, 7],
                    "E": [2, 4, 5, 5, 6, 6, 8, 9, 9]})
 
-print(df_ibi)
+#print(df_ibi)
 df_ibi['D'] = np.log10(df_ibi['D'])
-print(df_ibi)
+#print(df_ibi)
 
-if df_ibi['D'].max() > 0.84:
-      print('over 1')
-else:
-      print('less than 1')
-#df_max = df_ibi['D'].max()
-#print(df_max)
+#ML Testing
 
-from pathlib import Path
-path = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/'
-        'Missions/SWARM/Non-Flight Data/Analysis/Feb-22/data/solar_max/')
-#df = pd.read_csv('https://raw.githubusercontent.com/plotly/datasets/master/earthquakes-23k.csv')
+from collections import Counter
+from sklearn.datasets import make_classification
+from imblearn.under_sampling import NearMiss 
 
-dir_suffix='2015'
-#classified_output = str(path) +'/classified/'+'EPB-sg-classified_'+dir_suffix+'.csv'
+X, y = make_classification(n_classes=2, class_sep=2,
+weights=[0.1, 0.9], n_informative=3, n_redundant=1, flip_y=0,
+n_features=20, n_clusters_per_class=1, n_samples=1000, random_state=10)
+print('Original dataset shape %s' % Counter(y))
 
-#df = pd.read_csv(classified_output)
+nm = NearMiss()
+X_res, y_res = nm.fit_resample(X, y)
+print('Resampled dataset shape %s' % Counter(y_res))
 
-#print(df)
-
-# import plotly.express as px
-# fig = px.density_mapbox(df, lat='lat', lon='long', z='b_ind', radius=10,
-#                         center=dict(lat=0, lon=180), zoom=0,
-#                         mapbox_style="stamen-terrain")
-
-# fig.show()
