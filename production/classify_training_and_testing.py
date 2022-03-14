@@ -12,7 +12,7 @@ df = pd.read_csv(load_data)
 
 #df = df[['date','utc','mlt','lat','long','s_id','pass','Ne','Ti','pot','id','epb_gt']]
 
-test_id =  16
+test_id =  10
 df = df[df['id']==test_id]
 #print(df)
 

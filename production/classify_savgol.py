@@ -18,20 +18,20 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import gridspec
 import seaborn as sns
-pd.set_option('display.max_rows', None) #or 10 or None
+pd.set_option('display.max_rows',  10) #or 10 or None
 
 path = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/'
         'Missions/SWARM/Non-Flight Data/Analysis/Mar-22/data/solar_max/')
 
 dir_suffix = '2015'
 load_all = str(path) + '/' + dir_suffix +'-data-2022-03-03.csv'
-#epb_mssl_output = str(path) +'/EPB_counts/'+'EPB-count-MSSL_'+dir_suffix+'.csv'
+epb_mssl_output = str(path) +'/EPB_counts/'+'EPB-count-MSSL_'+dir_suffix+'.csv'
 #epb_ibi_output = str(path) +'/EPB_counts/'+'EPB-count-IBI_'+dir_suffix+'.csv'
 #classified_output = str(path) +'/classified/'+'EPB-sg-classified_no_std_'+dir_suffix+'.csv'
 filter_classified_output = str(path) +'/classified/'+'EPB-sg-classified_filter_'+dir_suffix+'.csv'
 
 #for testing. Quicker to load
-classified_output = str(path) +'/classified/'+'EPB-sg-classified_indie_'+dir_suffix+'.csv'
+#classified_output = str(path) +'/classified/'+'EPB-sg-classified_indie_'+dir_suffix+'.csv'
 
 def open_all(filename):
     print('Loading data...')
@@ -59,7 +59,7 @@ class classify_epb():
         #df = df.drop(columns=['pot_std','Te_std','Ti_std','alt'])
         df = df[df['b_ind']!=-1]
         df = df[df['lat'].between(-35,35)]
-        df = df[df['date'] == '2014-09-27']
+        df = df[df['date'] == '2015-03-12']
         #df = df[df['p_num'] == 641]
 
         #print(df)
@@ -219,7 +219,7 @@ class classify_epb():
         
         #Export the dataframes
         print('Exporting dataframes...')
-        #classified_df.to_csv(classified_output, index=False, header = True)
+        classified_df.to_csv(classified_output, index=False, header = True)
         #mssl_epb_df.to_csv(epb_mssl_output, index=False, header = True)
         #ibi_epb_df.to_csv(epb_ibi_output, index=False, header = True)
         
@@ -339,7 +339,7 @@ class classify_epb():
         df.to_csv(filter_classified_output, index=False, header = True)
         print('Filtered dataframe exported.')
 
-#ebuild_sg_df(retained_dates)
+#rebuild_sg_df(retained_dates)
 #classify = classify_epb()
 #full_df_mssl_classified, mssl_epb_count, ibi_epb_count= classify.ibi_mssl_epb_compare()
 #print(full_df_mssl_classified)
@@ -378,9 +378,9 @@ def panel_plot(dpi):
         #print(df)
 
         df = open_all(classified_output)
-        df = df[df['p_num'] == 2495]
+        df = df[df['p_num'] == 191]
         #df = full_df_mssl_classified
-        print(df)
+        #print(df)
 
         figs, axs = plt.subplots(ncols=1, nrows=4, figsize=(8,4.5), 
         dpi=dpi, sharex=True) #3.5 for single, #5.5 for double
@@ -551,47 +551,154 @@ def heatmap(df, pv_mssl, pv_ibi, year):
 
 def determine_epb_intensity():
 
+    import plotly.express as px
+
     df = open_all(filter_classified_output)
+
+    #print(df)
     
+    #reformating the columns for better plottability
+    #df = df[df['date'] == '2015-03-03']
     df['lat'] = df['lat'].round(0)
     df['long'] = df['long'].round(0)
+    #df['long'] = (df['long'] /10).round().astype(int) * 10
+    #df['lat'] = (df['lat'] / 10).round().astype(int) * 10
     df['mlt'] = df['mlt'].round(1)
     df["utc"] = df['utc'].str.slice(stop =-3)
     df["mon"] = df['date'].str.slice(start=5, stop =-3)
     df["day"] = df['date'].str.slice(start=8)
-    df['# of EPB flags'] = df['sg_smooth']
+    #df = df[df['mon'] == "03"]
 
-    mssl_epb_intensity = df.groupby(['date','mlt','lat','long'], 
-            as_index=False)['# of EPB flags'].sum()
+    def pot_check(x):
 
-    #mssl_epb_intensity = df.groupby(['date','mon','lat','long'], 
-    #        as_index=False)['# of EPB flags'].sum()
-
-    mssl_epb_intensity = mssl_epb_intensity.sort_values(by=['mlt'], 
-            ascending=True)
-
-    #mssl_epb_date = df.groupby(['date','long','lat'], 
-    #        as_index=False)['date'].sum()
-
-    print(df)
-    print(mssl_epb_intensity)
-    #print(mssl_epb_date)
-
-    import plotly.express as px
-    fig = px.density_mapbox(mssl_epb_intensity, lat='lat', lon='long', z='# of EPB flags', radius=25,
-                    center=dict(lat=0, lon=0), zoom=1, 
-                    range_color=[0,35],
-                    hover_name = 'date',
-                    animation_frame = 'mlt',
-                    color_continuous_scale=px.colors.sequential.Viridis,
-                    mapbox_style="carto-darkmatter")
+        if x > -0.7:
+            return 1
+        else:
+            return 0
     
+    #df['pot_den'] = df['pot'].apply(pot_check)
+
+
+    #df['Ne_stddev'].max() > value:
+    df_scat = df.groupby(['lat','long'], as_index=False)['sg_smooth'].sum()
+    #print(df_scat)
+
+    df_epb = df.groupby(['date','mlt','lat','long'], as_index=False)['sg_smooth'].sum()
+    print(df_epb)
+    df_pot = df.groupby(['date','mlt','lat', 'long'], as_index=False)[['pot']].mean()
+    df_te = df.groupby(['date','lat', 'long'], as_index=False)['Te'].mean()
+
+    #df = df.groupby(['date','lat', 'long'], as_index=False)['Te'].mean()
+
+    df = df_epb.merge(df_pot, on =['date','mlt','lat','long'], how='outer')
+    df['corr'] =  df['sg_smooth'].rolling(window=10).corr(df['pot'])
+    df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    df.dropna(inplace=True)
+    
+    '''
+    plt.figure(figsize=(14,5),dpi=90)
+    pivot_df = df.pivot_table(values="corr",index="lat",
+                    columns="long", aggfunc=np.mean, dropna = False)
+    print(pivot_df)
+    sns.heatmap(pivot_df, cmap="PiYG", center=0)
+    plt.xticks(rotation=0) 
+    plt.tight_layout()
+    plt.show()'''
+
+    def corr_check(x):
+        if 0.75 < x < 1:
+            return 1
+        else:
+            return 0
+
+        '''
+        elif -0.5 < x < 0:
+            return 2
+        elif 0 < x < 0.5:
+            return 3
+        elif -0.5 < 1:
+            return 4
+        else:
+            return 0'''
+        
+        #print(-1 < num < 4)
+        '''
+        if x > 0:
+            return 1
+        else:
+            return 0'''
+    
+    df['corr_den'] = df['corr'].apply(corr_check)
+
+    '''orbyts/
+    #fig = px.scatter_mapbox(df_scat, lat='lat', lon='long',
+    fig = px.scatter_geo(df_scat, lat='lat', lon='long',
+                    size="sg_smooth", # size of markers, "pop" is one of the columns of gapminder
+                    center=dict(lat=0, lon=0),
+                    color="sg_smooth",
+                    #basemap_visible = False,
+                    labels = {'sg_smooth':'EPB Flag count'},
+                    #title= "Size of EPB"
+                    #animation_frame = "p_num"
+                    #color_continuous_scale=px.colors.sequential.Turbo,
+                    #mapbox_style="carto-darkmatter"
+                    )'''
+
+
+
+
+    #window = 50
+    #mssl_epb_intensity['corrs'] =  mssl_epb_intensity['sg_smooth'].corr(mssl_epb_intensity['pot'])
+
+    #df['# of EPB flags'] = df['sg_smooth']
+    
+    #mssl_epb_intensity = df.groupby(['date','mlt','lat','long'], as_index=False)['# of EPB flags'].sum()
+    #        as_index=False)['pot'].sum()
+
+    #print(df)
+
+    #print(mssl_epb_intensity['pot'].mean())
+    #window = 50
+    #mssl_epb_intensity['corrs'] =  mssl_epb_intensity['sg_smooth'].corr(mssl_epb_intensity['pot'])
+    #mssl_epb_intensity['corrs'] = mssl_epb_intensity['sg_smooth'].rolling(window=window).corr(mssl_epb_intensity['pot'])
+    #mssl_epb_intensity = mssl_epb_intensity.dropna()
+    #print(mssl_epb_intensity)
+
+    
+    import plotly.express as px
+    fig = px.density_mapbox(df_epb, lat='lat', lon='long', z='sg_smooth', radius=7,
+                    center=dict(lat=0, lon=0), zoom=1.5, 
+                    #range_color=[-1.5, 0.5], #pot (mean)
+                    #range_color = [-3, 3], #pot (sum)
+                    range_color=[0, 35], #number of MSSL epb
+                    labels = {"sg_smooth":"Density of EPBs"},
+                    #range_color=[1100, 3000], #Te
+                    #range_color = [0.5,2],
+                    #hover_name = 'date',
+                    #animation_frame = 'date',
+                    #color_continuous_scale=px.colors.sequential.Viridis,
+                    #mapbox_style="carto-darkmatter"
+                    mapbox_style ="carto-positron"
+                    )
+
+    
+    #fig = px.scatter_geo(df_epb, lat='lat',
+    #                size='sg_smooth',
+    #                projection="natural earth")'''
+
+    fig.update_layout(
+            #legend_title="Legend Title",
+            font=dict(size=20))
+
+    fig.update_traces(visible=True)
     fig.show()
+    #fig_2.show()
+    
     return fig
 
 #full_df_mssl_classified = open_all(classified_output)
 #print(full_df_mssl_classified)
-#determine_epb_intensity()
+determine_epb_intensity()
 
 def train_test_class(dpi):
 

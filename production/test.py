@@ -2,6 +2,7 @@ from scipy import signal
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
+import seaborn as sns
 
 '''
 def butter_highpass(low_cut, high_cut, fs, order=5):
@@ -33,42 +34,25 @@ df = pd.DataFrame({'date': ['2015-01-01', '2015-01-02', '2015-01-02', '2015-01-0
                   'p_num': [1, 2, 2, 5, 5], 'Ne':[1e6, 1e5, 1e4, 5e6, 6e6] })
 
 
-df_msssl = pd.DataFrame({"A": ["foo", "foo", "foo", "foo", "foo",
-                         "bar", "bar", "bar", "bar"],
-                   "B": ["one", "one", "one", "two", "two",
-                         "one", "one", "two", "two"],
-                   "C": ["small", "large", "large", "small",
-                         "small", "large", "small", "small",
-                         "large"],
-                   "D": [1, 2, 2, 3, 3, 4, 5, 6, 7],
-                   "E": [2, 4, 5, 5, 6, 6, 8, 9, 9]})
+df_a = pd.DataFrame({"utc": ["13:00","13:01","13:02"],
+                   "lat": [1.1, 1.2, 1.3],
+                   "lon": [-1.1, -2.1, -3.1],
+                   'ne': [1e5, 2e5, 1e5],
+                   "p_num": [1, 2, 2],
+                   "sat": ["A", "A", "A"]})
 
-df_ibi = pd.DataFrame({"A": ["foo", "foo", "foo", "foo", "foo",
-                         "bar", "bar", "bar", "bar"],
-                   "B": ["one", "one", "one", "two", "two",
-                         "one", "one", "two", "two"],
-                   "C": ["small", "large", "large", "small",
-                         "small", "large", "small", "small",
-                         "large"],
-                   "D": [1, 2, 2, 3, 3, 4, 5, 6, 7],
-                   "E": [2, 4, 5, 5, 6, 6, 8, 9, 9]})
+df_b = pd.DataFrame({"utc": ["13:00","13:01","13:02"],
+                   "lat": [2.1, 2.2, 2.3],
+                   "lon": [-1.2, -2.2, -3.2],
+                   'ne': [1e6, 2e6, 1e6],
+                   "p_num": [1, 2, 2],
+                   "sat": ["C", "C", "C"]})
 
-#print(df_ibi)
-df_ibi['D'] = np.log10(df_ibi['D'])
-#print(df_ibi)
 
-#ML Testing
+df = pd.concat([df_a, df_b],axis=0)
+print(df)
 
-from collections import Counter
-from sklearn.datasets import make_classification
-from imblearn.under_sampling import NearMiss 
-
-X, y = make_classification(n_classes=2, class_sep=2,
-weights=[0.1, 0.9], n_informative=3, n_redundant=1, flip_y=0,
-n_features=20, n_clusters_per_class=1, n_samples=1000, random_state=10)
-print('Original dataset shape %s' % Counter(y))
-
-nm = NearMiss()
-X_res, y_res = nm.fit_resample(X, y)
-print('Resampled dataset shape %s' % Counter(y_res))
-
+sns.lineplot(data=df, x = 'utc',y='ne',hue='sat')
+plt.yscale('log')
+plt.tight_layout()
+plt.show()

@@ -1,4 +1,5 @@
 '''
+
     This file uses a Random Forest classifer to train a model to predict
     EPBs    
     Created by Sachin A. Reddy
@@ -27,13 +28,6 @@ import pickle
 
 path = (r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions'
         '/SWARM/Non-Flight Data/Analysis/Mar-22/data/solar_max/ml_model/')
-
-filename = path + 'ml-2015_with-std.csv'
-load_hdf = pd.read_csv(filename)
-
-print('loading data...')
-print(load_hdf)
-
 
 class RF_classifer():
 
@@ -102,8 +96,8 @@ class RF_classifer():
         #nm = NearMiss()
         #X_rs, y_rs = nm.fit_resample(X, y)
     
-        print('Orignal data shape%s' %Counter(y))
-        print('Resampled data shape%s' %Counter(y_rs))
+        #print('Orignal data shape%s' %Counter(y))
+        #print('Resampled data shape%s' %Counter(y_rs))
         
         return X_rs, y_rs
 
@@ -115,7 +109,7 @@ class RF_classifer():
         #from sklearn import metrics
 
         print('creating RF...')
-        model = RandomForestClassifier(n_estimators=100, random_state=42,
+        model = RandomForestClassifier(n_estimators=175, random_state=42,
         min_samples_leaf=1, n_jobs=-1)
         #model = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, 
         #        max_depth=3, random_state=42)
@@ -140,9 +134,8 @@ class RF_classifer():
     def model_info(self, feature_labs):
 
         from sklearn import metrics
-
-        #model = self.build_rf_model(X_train, y_train)
         model = self.load_model()
+        #print(model)
 
         y_pred = model.predict(X_test) #based on the model, predict EPB or not EPB 
         y_probas = model.predict_proba(X_test) #based on the model, predict probability of classes: EPB 0.8%, not EPB 0.65% etc
@@ -189,36 +182,69 @@ class RF_classifer():
         skplt.metrics.plot_precision_recall(y_test, y_probas, ax=axs[0]) #for imbalanced data
         skplt.metrics.plot_confusion_matrix(y_test, y_pred, ax = axs[3])
 
-        figs.suptitle(f'Random Forest Classifier (solar_max) \n'
+        figs.suptitle(f'Random Forest Classifier \n'
                 f'Accuracy: {accuracy} Precision: {precision} Recall: {recall} '
                 f'F1: {f1}')
 
         plt.tight_layout()
         plt.show()
 
-run = 'yes'
+    def plot_dt(self,feature_labs):
 
-if run == 'yes':
+        #import graphviz
+        from sklearn.tree import export_graphviz
 
-    rf = RF_classifer()
-    feat_eng = rf.featureEng(load_hdf)
+        model = self.load_model()
+        estimator = model.estimators_[5]
 
-    y_label = 'sg_smooth'
-    feature_labs = ['long','Ne_std','Ti','pot']
-    x_data, y_data, = rf.selectNScale(feat_eng, feature_labs, y_label)
-    X_train, X_test, y_train, y_test = rf.train_test_split(x_data, y_data)
-    X_train, y_train = rf.resample_class(X_train, y_train)
+        #labs = feature_labs
 
-    #save model
-    model_name = 'rf_2015_MSSL_ne-std.pkl'
-    model_pathfile = path + model_name
+        dot_data = export_graphviz(estimator,out_file='tree.dot')
+
+        #graph = graphviz.Source(dot_data)  
+
+        from subprocess import call
+        call(['dot', '-Tpng', 'tree.dot', '-o', 'tree.png', '-Gdpi=600'])
+        #plt.show('tree.png')
+
+        '''
+        export_graphviz(estimator, out_file='tree.dot', 
+                feature_names = feature_labs,
+                rounded = True, proportion = False, 
+                precision = 2, filled = True)'''
+
+
+        print(estimator)
+
+
+filename = path + 'ml-2015_with-std.csv'
+load_hdf = pd.read_csv(filename)
+
+print('loading data...')
+#print(load_hdf)
+
+rf = RF_classifer()
+feat_eng = rf.featureEng(load_hdf)
+
+y_label = 'sg_smooth'
+feature_labs = ['lat','long','mlt','pot','Ne','Ti']
+x_data, y_data, = rf.selectNScale(feat_eng, feature_labs, y_label)
+X_train, X_test, y_train, y_test = rf.train_test_split(x_data, y_data)
+X_train, y_train = rf.resample_class(X_train, y_train)
+
+#save model
+model_name = 'rf_2015_MSSL_llm-pnt.pkl'
+model_pathfile = path + model_name
+
+run_model = "no"
+if run_model == "yes":
     model = rf.build_rf_model(X_train, y_train)
-
-    #load model
-    accuracy, precision, recall, f1 = rf.model_info(feature_labs) #model info
-    rf_model = rf.plot_rf(feature_labs, accuracy, precision, recall, f1) #plot model
-
-    #print(feat_eng)
 else:
-    print('routine not run')
     pass
+
+#load model
+#accuracy, precision, recall, f1 = rf.model_info(feature_labs) #model info
+#rf_plot = rf.plot_rf(feature_labs, accuracy, precision, recall, f1) #plot model
+dt_plot = rf.plot_dt(feature_labs)
+
+
