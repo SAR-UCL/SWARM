@@ -23,12 +23,20 @@ pd.set_option('display.max_rows',  10) #or 10 or None
 path = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/'
         'Missions/SWARM/Non-Flight Data/Analysis/Mar-22/data/solar_max/')
 
-dir_suffix = '2015'
+#path_ts = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/'
+#        'Missions/SWARM/Non-Flight Data/Analysis/Mar-22/data/two_sat/')
+
+dir_suffix = '2014'
 load_all = str(path) + '/' + dir_suffix +'-data-2022-03-03.csv'
-epb_mssl_output = str(path) +'/EPB_counts/'+'EPB-count-MSSL_'+dir_suffix+'.csv'
-#epb_ibi_output = str(path) +'/EPB_counts/'+'EPB-count-IBI_'+dir_suffix+'.csv'
-#classified_output = str(path) +'/classified/'+'EPB-sg-classified_no_std_'+dir_suffix+'.csv'
-filter_classified_output = str(path) +'/classified/'+'EPB-sg-classified_filter_'+dir_suffix+'.csv'
+#load_all = str(path_ts) + '/' + 'AC-2014_2022-03-14.csv'
+
+epb_mssl_output = str(path) +'/overfitting_test/'+'EPB-count-MSSL_'+dir_suffix+'.csv'
+epb_ibi_output = str(path) +'/overfitting_test/'+'EPB-count-IBI_'+dir_suffix+'.csv'
+#classified_output = str(path) +'/classified/'+'EPB-sg-classified_'+dir_suffix+'.csv'
+classified_output = str(path) +'/overfitting_test/'+'SG-applied_'+dir_suffix+'.csv'
+#filter_classified_output = str(path) +'/classified/'+'EPB-sg-classified_stddev_filter_'+dir_suffix+'.csv'
+filter_classified_output = str(path) +'/overfitting_test/'+'SG-filtered_'+dir_suffix+'.csv'
+
 
 #for testing. Quicker to load
 #classified_output = str(path) +'/classified/'+'EPB-sg-classified_indie_'+dir_suffix+'.csv'
@@ -37,6 +45,21 @@ def open_all(filename):
     print('Loading data...')
     df = pd.read_csv(filename)
     return df
+
+'''
+df = open_all(load_all)
+df = df[df['date'] == '2014-10-02']
+df = df[['utc','mlt','lat','long','mlt','p_num','s_id','Ne']]
+df = df.sort_values(by=['utc','s_id'], ascending=[True, True])
+#df = df.groupby(['p_num']).mean()
+df = df[df['utc'].between('00:20:00','00:40:00')]
+print(df)
+
+sns.lineplot(data=df, x='lat',y='Ne',hue='s_id')
+
+plt.yscale('log')
+plt.tight_layout()
+plt.show()'''
 
 class classify_epb():
 
@@ -59,7 +82,7 @@ class classify_epb():
         #df = df.drop(columns=['pot_std','Te_std','Ti_std','alt'])
         df = df[df['b_ind']!=-1]
         df = df[df['lat'].between(-35,35)]
-        df = df[df['date'] == '2015-03-12']
+        #df = df[df['date'] == '2014-10-02']
         #df = df[df['p_num'] == 641]
 
         #print(df)
@@ -220,8 +243,8 @@ class classify_epb():
         #Export the dataframes
         print('Exporting dataframes...')
         classified_df.to_csv(classified_output, index=False, header = True)
-        #mssl_epb_df.to_csv(epb_mssl_output, index=False, header = True)
-        #ibi_epb_df.to_csv(epb_ibi_output, index=False, header = True)
+        mssl_epb_df.to_csv(epb_mssl_output, index=False, header = True)
+        ibi_epb_df.to_csv(epb_ibi_output, index=False, header = True)
         
         print('Dataframe exported.')
         return classified_df, mssl_epb_df, ibi_epb_df
@@ -339,67 +362,62 @@ class classify_epb():
         df.to_csv(filter_classified_output, index=False, header = True)
         print('Filtered dataframe exported.')
 
-#rebuild_sg_df(retained_dates)
-#classify = classify_epb()
+classify = classify_epb()
 #full_df_mssl_classified, mssl_epb_count, ibi_epb_count= classify.ibi_mssl_epb_compare()
 #print(full_df_mssl_classified)
 #print('MSSL count\n',mssl_epb_count)
 #print('IBI count\n',ibi_epb_count)
 
 #EPB counter (how many EPB events per day)
-#df_mssl, df_ibi = classify.filter_epb('epb_num','epb_num')
-#mssl_ibi, pv_mssl, pv_ibi, retained_dates, year = classify.pivot_epb(df_mssl, df_ibi,"epb_num")
+df_mssl, df_ibi = classify.filter_epb('epb_num','epb_num')
+mssl_ibi, pv_mssl, pv_ibi, retained_dates, year = classify.pivot_epb(df_mssl, df_ibi,"epb_num")
 #classify.rebuild_sg_df(mssl_ibi, retained_dates)
 
 #EPB continuous data (how large is each point?)
 #df_mssl, df_ibi = classify.filter_epb('epb_size','epb_size')
 #mssl_ibi, pv_mssl, pv_ibi, retained_dates, year = classify.pivot_epb(df_mssl, df_ibi,"epb_size")
 
-'''
-plt.figure(figsize = (4,6.6))
-#cmap = "PiYG" #differentiation
-cmap = "YlGnBu" #individual days
-sns.heatmap(pv_ibi, annot=True, linewidths=0.1,
-            fmt=".0f", cmap=cmap, center=None)
-
-plt.title(f'Number of EPB flags per day in 2014 \n IBI', fontsize=10.5)
-#plt.title(f'Number of EPB events in {date}, \n (MSSL Classifier)', fontsize=10.5)
-plt.xlabel(' ')
-plt.ylabel(' ')
-
-#ax.figure.axes[-1].set_ylabel(f'{log} counts per sec', size=9.5)
-plt.yticks(rotation = 0)
-
-plt.tight_layout()
-plt.show()'''
 
 def panel_plot(dpi):
 
         #print(df)
 
         df = open_all(classified_output)
-        df = df[df['p_num'] == 191]
-        #df = full_df_mssl_classified
-        #print(df)
 
+        #df_gb = df.groupby(['utc']).mean()
+        df = df[df['utc'].between('00:22:00','00:38:00')]
+        df = df.sort_values(by=['utc','s_id'], ascending=[True,True])
+
+        df_long = df[['utc','lat','long','s_id','Ne']]
+        df_long = df_long.groupby(['utc','lat','long','s_id'],as_index=False).mean()
+
+        df_long['long_diff'] = df_long['long'] - df_long['long'].shift(1)
+        df_long = df_long.iloc[1::2]
+        df_long['long_diff_km'] = abs(df_long ['long_diff'] * 111)
+
+        #df = df[df['p_num'] == 96]
+        #df = full_df_mssl_classified
+        print(df_long)
+
+        
         figs, axs = plt.subplots(ncols=1, nrows=4, figsize=(8,4.5), 
         dpi=dpi, sharex=True) #3.5 for single, #5.5 for double
         axs = axs.flatten()
 
         x = 'lat'
-        hue = 'p_num'
+        hue = 's_id'
 
         #palette = sns.palplot(sns.dark_palette((260, 75, 60), input="husl"))
 
         ax0y = 'Ne'
         sns.lineplot(ax = axs[0], data = df, x = x, y =ax0y, 
-                palette = 'cubehelix' ,hue = hue, legend=False)
+                palette = 'cubehelix' ,hue = hue, legend=True)
 
-        ax1y = 'b_ind'
+        ax1y = 'sg_smooth'
         sns.lineplot(ax = axs[1], data = df, x =x, y =ax1y,
                 palette = 'cubehelix', hue = hue, legend=False)
  
-        ax2y = 'sg_smooth'
+        ax2y = 'pot'
         sns.lineplot(ax = axs[2], data = df, x = x, y =ax2y, 
                 palette = 'cubehelix', hue = hue, legend = False)
 
@@ -423,7 +441,11 @@ def panel_plot(dpi):
         lat_s = df['lat'].iloc[0]
         lat_e = df['lat'].iloc[-1]
 
-        title = 'EPB Classification: IBI Processor vs. MSSL'
+        title = 'EPB Classification: SWARM A & C (4-10s sep) \n'
+
+        #seperation article
+        #https://earth.esa.int/eogateway/news/swarm-s-orbital-dance-counter-
+        #rotating-and-closer-for-the-benefit-of-science
     
         axs[0].set_title(f'{title} on {date_s} ({p_num})' 
                 #f'\n Precision: {precision}, Recall: {recall}, F1: {f1}' 
@@ -438,11 +460,11 @@ def panel_plot(dpi):
         
         axs[1].set_ylabel(f'{ax1y}')
         axs[1].tick_params(bottom = False)
-        axs[1].set_ylabel('IBI')
+        axs[1].set_ylabel('MSSL')
 
         axs[2].set_ylabel(f'{ax2y}')
         axs[2].tick_params(bottom = False)
-        axs[2].set_ylabel('MSSL')
+        #axs[2].set_ylabel('Long Diff \n(km)')
 
         axs[3].set_ylabel(f'{ax3y}')
         #axs[3].tick_params(bottom = False)
@@ -457,7 +479,7 @@ def panel_plot(dpi):
 
         ax = plt.gca()
         ax.set_xlim([-40, 40])
-        #ax.invert_xaxis()
+        ax.invert_xaxis()
 
         plt.tight_layout()
 
@@ -486,7 +508,7 @@ def heatmap(df, pv_mssl, pv_ibi, year):
             gridspec_kw={'width_ratios':[1,1,0.25, 1,0.25]}, figsize=(6,6.5))
 
     f.suptitle(f'Number of EPB events per day in {year}'
-            '\n without std dev filter'
+            #'\n without std dev filter'
            ,fontsize=11)
     plt.subplots_adjust(top=0.85)
 
@@ -547,7 +569,7 @@ def heatmap(df, pv_mssl, pv_ibi, year):
 
 #df_mssl = open_all(epb_mssl_output)
 #df_ibi = open_all(epb_ibi_output)
-#heatmap(mssl_ibi, pv_mssl, pv_ibi, year)
+heatmap(mssl_ibi, pv_mssl, pv_ibi, year)
 
 def determine_epb_intensity():
 
@@ -698,7 +720,7 @@ def determine_epb_intensity():
 
 #full_df_mssl_classified = open_all(classified_output)
 #print(full_df_mssl_classified)
-determine_epb_intensity()
+#determine_epb_intensity()
 
 def train_test_class(dpi):
 

@@ -10,7 +10,7 @@ def mergeCSV():
 
     #path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/Phoenix/Instrument Data/analysis/first_sixty/data/stm'
     #path = r'/Users/sr2/Documents/OneDrive - University College London/PhD/Research/Missions/Phoenix/Instrument Data/analysis/Mar-21/data/double-peak'
-    path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Jan-22/data/systematic/train_set/'
+    path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Mar-22/data/solar_max/ml_model/' 
     
     filenames = glob.glob(path + "/*.csv")
 
@@ -33,17 +33,17 @@ def mergeCSV():
     
 
     def drop(df):
-
-        df = df[['date','utc','mlt','lat','long','s_id','pass','Ne','Ti','pot','id','epb_gt']]
+        #df = df[['date','utc','mlt','lat','long','s_id','pass','Ne','Ti','pot','id','epb_gt']]
+        df = df[['date','utc','mlt','lat','long','s_id','p_num','Ne','Ti','pot','sg_smooth']]
         #df['epb_gt'] = 0
         return df
 
-    merge_csv = drop(merge_csv)
+    #merge_csv = drop(merge_csv)
 
     #sort_df['utc'] = sort_df['utc'].apply(utc)
     #print(sort_df)
 
-    csv_output_pathfile = path + "train_set.csv" # -4 removes '.pkts' or '.dat'
+    csv_output_pathfile = path + "SG-filtered_14-15.csv" # -4 removes '.pkts' or '.dat'
     merge_csv.to_csv(csv_output_pathfile, index = False, header = True)
     
     print(merge_csv)

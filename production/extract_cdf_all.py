@@ -16,19 +16,19 @@ import os
 from datetime import date
 #pd.set_option('display.max_rows', None) #or 10 or None
 
-dir_suffix = '2014'
+dir_suffix = 'A'
 
-IBI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/solar_max/'+dir_suffix)
-LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/solar_max/'+dir_suffix)
-EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/solar_max/'+dir_suffix)
+IBI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/IBI/two_sat/C')
+LP_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/LP/two_sat/C')
+EFI_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/EFI/two_sat/C')
 MAG_dir = Path(r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/in-flight data/MAG/'+dir_suffix)
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Feb-22/data/solar_max/'
+path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Mar-22/data/two_sat/'
 
 #Output names
 IBI_output = path + 'IBI-data_'+dir_suffix+'.csv'
 LP_output = path + 'LP-data_'+dir_suffix+'.csv'
 EFI_output = path + 'EFI-data_'+dir_suffix+'.csv'
-MAG_output = path + 'MAG-data_'+dir_suffix+'.csv'
+#MAG_output = path + 'MAG-data_'+dir_suffix+'.csv'
 EPB_output = path +'/EPB_counts/'+ 'EPB-count-IBI_'+dir_suffix+'.csv'
 
 today =  str(date.today())
@@ -84,7 +84,7 @@ class extraction():
         except RuntimeError:
             raise Exception('Problems extracting IBI data')
         
-        
+
         ibi_data['datetime'] = ibi_data['datetime'].apply(self.convert2Datetime).str[0].astype(str)
         ibi_data = ibi_data.reset_index().drop(columns=['index'])
 
@@ -253,8 +253,7 @@ class extraction():
             
             efi_data['datetime'] = efi_data['datetime'].apply(self.convert2Datetime).str[0].astype(str)
             efi_data["datetime"] = efi_data['datetime'].str.slice(stop =-4)
-            
-            
+                  
             #Export
             efi_data.to_csv(EFI_output, index=False, header = True)
             print ('EFI data exported.')
@@ -368,11 +367,11 @@ extract = extraction()
 #lp_data = extract.openLP(LP_dir)
 #efi_data = extract.openEFI(EFI_dir)
 #mag_data = extract.openMAG(MAG_dir)
-#merged_data = extract.mergeCDF(IBI_output, LP_output, EFI_output)
+merged_data = extract.mergeCDF(IBI_output, LP_output, EFI_output)
 #print(merged_data)
 
-print('Loading data...')
-df = pd.read_csv(joined_output)
+#print('Loading data...')
+#df = pd.read_csv(joined_output)
 #print(df)
 
 def heatmap(df):
@@ -436,5 +435,5 @@ def heatmap(df):
     plt.tight_layout()
     plt.show()
 
-heatmap(df)
+#heatmap(df)
 

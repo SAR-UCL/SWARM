@@ -16,15 +16,7 @@ import pandas as pd
 #from matplotlib.colors import LogNorm
 from datetime import date
 import pickle
-
-
-#path = (r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions'
-#        '/SWARM/Non-Flight Data/Analysis/Jan-22/data/decadal/')
-
-#today =  str(date.today())
-#file_name = 'wrangled-EPB-'+ today +'.h5'
-#load_hdf = path + file_name
-#load_hdf = pd.read_hdf(load_hdf)
+import datetime
 
 path = (r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions'
         '/SWARM/Non-Flight Data/Analysis/Mar-22/data/solar_max/ml_model/')
@@ -66,13 +58,13 @@ class RF_classifer():
 
         return x_data, y_data
 
-    def train_test_split(self, x_data, y_data):
+    def train_test_split(self, x_data, y_data, t_size):
         from sklearn.model_selection import train_test_split
 
         print('splitting data...')
 
         X_train, X_test, y_train, y_test = train_test_split(x_data, y_data, 
-                test_size = 0.1, random_state=42)
+                test_size = t_size, random_state=42)
 
         #print(len(X_train))
         return X_train, X_test, y_train, y_test
@@ -101,6 +93,45 @@ class RF_classifer():
         
         return X_rs, y_rs
 
+    def rf_grid_search(self,X_train,y_train):
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.model_selection import GridSearchCV
+
+        model = RandomForestClassifier(random_state=42)
+
+        #create a dictionary of all values we want to test
+
+        #Test 1
+
+        '''
+        param_grid = { 
+                'n_estimators': [100, 200, 500],
+                'min_samples_leaf':[1,2,3],
+                'max_features': ['auto', 'sqrt', 'log2'],
+                'max_depth' : [4,5,6,7,8],
+                'criterion' :['gini', 'entropy']
+        } '''
+
+        #Test 2
+        param_grid = { 
+                #'n_estimator':[200],
+                'max_features': ['sqrt', 'log2'],
+                'min_samples_leaf':[1,2],
+                #'max_depth':[8],
+                #'criterion' :['gini']
+        }  
+        
+        pre_time = datetime.datetime.now()
+        print('Starting GridSearchCV at', pre_time)
+        CV_rfc = GridSearchCV(estimator=model, param_grid=param_grid, cv= 5)
+        CV_rfc.fit(X_train, y_train)
+        post_time = datetime.datetime.now()
+        print('Finished GridSearchCV at', post_time)
+        diff_time = post_time - pre_time
+        print('Processing time:', diff_time)
+        
+        print(CV_rfc.best_params_)
+
     def build_rf_model(self, X_train, y_train):
         from sklearn.ensemble import RandomForestClassifier
         from sklearn.ensemble import GradientBoostingClassifier
@@ -108,13 +139,20 @@ class RF_classifer():
         import pickle
         #from sklearn import metrics
 
-        print('creating RF...')
-        model = RandomForestClassifier(n_estimators=175, random_state=42,
-        min_samples_leaf=1, n_jobs=-1)
+        pre_time = datetime.datetime.now()
+        print('Starting RFC at', pre_time)
+
+        model = RandomForestClassifier(n_estimators=200, random_state=42,
+        min_samples_leaf=1, n_jobs=-1, max_features = "sqrt")
         #model = GradientBoostingClassifier(n_estimators=100, learning_rate=0.1, 
         #        max_depth=3, random_state=42)
 
         model = model.fit(X_train, y_train)
+        post_time = datetime.datetime.now()
+        print('Ending RFC at', post_time)
+        diff_time = post_time - pre_time
+        print('Processing time:', diff_time)
+        
         model.n_features_
         
         #return model
@@ -191,60 +229,57 @@ class RF_classifer():
 
     def plot_dt(self,feature_labs):
 
-        #import graphviz
-        from sklearn.tree import export_graphviz
+        iris = datasets.load_iris()
+        X = iris.data
+        y = iris.target
+        
+        # Fit the classifier with default hyper-parameters
+        clf = DecisionTreeClassifier(random_state=1234)
+        model = clf.fit(X, y)   
 
-        model = self.load_model()
-        estimator = model.estimators_[5]
+        text_representation = tree.export_text(clf)
+        print(text_representation)
 
-        #labs = feature_labs
+        fig = plt.figure(figsize=(25,20))
+        _ = tree.plot_tree(clf, 
+                   feature_names=iris.feature_names,  
+                   class_names=iris.target_names,
+                   filled=True)
 
-        dot_data = export_graphviz(estimator,out_file='tree.dot')
+        plt.tight_layout()
+        plt.show()
 
-        #graph = graphviz.Source(dot_data)  
-
-        from subprocess import call
-        call(['dot', '-Tpng', 'tree.dot', '-o', 'tree.png', '-Gdpi=600'])
-        #plt.show('tree.png')
-
-        '''
-        export_graphviz(estimator, out_file='tree.dot', 
-                feature_names = feature_labs,
-                rounded = True, proportion = False, 
-                precision = 2, filled = True)'''
-
-
-        print(estimator)
-
-
-filename = path + 'ml-2015_with-std.csv'
+filename = path + 'SG-filtered_14-15.csv'
 load_hdf = pd.read_csv(filename)
+load_hdf = load_hdf[load_hdf['date'] == '2015-03-01']
 
 print('loading data...')
-#print(load_hdf)
+print(load_hdf)
 
 rf = RF_classifer()
 feat_eng = rf.featureEng(load_hdf)
 
 y_label = 'sg_smooth'
-feature_labs = ['lat','long','mlt','pot','Ne','Ti']
+feature_labs = ['lat','long','mlt']
+#feature_labs = ['long','pot','Ne','Ti']
 x_data, y_data, = rf.selectNScale(feat_eng, feature_labs, y_label)
-X_train, X_test, y_train, y_test = rf.train_test_split(x_data, y_data)
+X_train, X_test, y_train, y_test = rf.train_test_split(x_data, y_data, t_size = 0.001)
 X_train, y_train = rf.resample_class(X_train, y_train)
 
 #save model
-model_name = 'rf_2015_MSSL_llm-pnt.pkl'
-model_pathfile = path + model_name
+model_name = 'rf_2014-2015_llm.pkl'
+model_pathfile = path + 'outputs/' + model_name
 
 run_model = "no"
 if run_model == "yes":
     model = rf.build_rf_model(X_train, y_train)
+    #rf_grid = rf.rf_grid_search(X_train, y_train)
 else:
     pass
 
 #load model
-#accuracy, precision, recall, f1 = rf.model_info(feature_labs) #model info
-#rf_plot = rf.plot_rf(feature_labs, accuracy, precision, recall, f1) #plot model
-dt_plot = rf.plot_dt(feature_labs)
+accuracy, precision, recall, f1 = rf.model_info(feature_labs) #model info
+rf_plot = rf.plot_rf(feature_labs, accuracy, precision, recall, f1) #plot model
+#dt_plot = rf.plot_dt(feature_labs)
 
 
