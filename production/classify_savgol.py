@@ -33,13 +33,13 @@ load_all = str(path) + '/' + dir_suffix +'-data-2022-03-03.csv'
 epb_mssl_output = str(path) +'/overfitting_test/'+'EPB-count-MSSL_'+dir_suffix+'.csv'
 epb_ibi_output = str(path) +'/overfitting_test/'+'EPB-count-IBI_'+dir_suffix+'.csv'
 #classified_output = str(path) +'/classified/'+'EPB-sg-classified_'+dir_suffix+'.csv'
-classified_output = str(path) +'/overfitting_test/'+'SG-applied_'+dir_suffix+'.csv'
+#classified_output = str(path) +'/overfitting_test/'+'SG-applied_'+dir_suffix+'.csv'
 #filter_classified_output = str(path) +'/classified/'+'EPB-sg-classified_stddev_filter_'+dir_suffix+'.csv'
 filter_classified_output = str(path) +'/overfitting_test/'+'SG-filtered_'+dir_suffix+'.csv'
 
 
 #for testing. Quicker to load
-#classified_output = str(path) +'/classified/'+'EPB-sg-classified_indie_'+dir_suffix+'.csv'
+classified_output = str(path) +'/classified/'+'EPB-sg-classified_indie_'+dir_suffix+'.csv'
 
 def open_all(filename):
     print('Loading data...')
@@ -82,7 +82,7 @@ class classify_epb():
         #df = df.drop(columns=['pot_std','Te_std','Ti_std','alt'])
         df = df[df['b_ind']!=-1]
         df = df[df['lat'].between(-35,35)]
-        #df = df[df['date'] == '2014-10-02']
+        df = df[df['date'] == '2014-02-01']
         #df = df[df['p_num'] == 641]
 
         #print(df)
@@ -243,8 +243,8 @@ class classify_epb():
         #Export the dataframes
         print('Exporting dataframes...')
         classified_df.to_csv(classified_output, index=False, header = True)
-        mssl_epb_df.to_csv(epb_mssl_output, index=False, header = True)
-        ibi_epb_df.to_csv(epb_ibi_output, index=False, header = True)
+        #mssl_epb_df.to_csv(epb_mssl_output, index=False, header = True)
+        #ibi_epb_df.to_csv(epb_ibi_output, index=False, header = True)
         
         print('Dataframe exported.')
         return classified_df, mssl_epb_df, ibi_epb_df
@@ -363,14 +363,14 @@ class classify_epb():
         print('Filtered dataframe exported.')
 
 classify = classify_epb()
-#full_df_mssl_classified, mssl_epb_count, ibi_epb_count= classify.ibi_mssl_epb_compare()
 #print(full_df_mssl_classified)
+#full_df_mssl_classified, mssl_epb_count, ibi_epb_count= classify.ibi_mssl_epb_compare()
 #print('MSSL count\n',mssl_epb_count)
 #print('IBI count\n',ibi_epb_count)
 
 #EPB counter (how many EPB events per day)
-df_mssl, df_ibi = classify.filter_epb('epb_num','epb_num')
-mssl_ibi, pv_mssl, pv_ibi, retained_dates, year = classify.pivot_epb(df_mssl, df_ibi,"epb_num")
+#df_mssl, df_ibi = classify.filter_epb('epb_num','epb_num')
+#mssl_ibi, pv_mssl, pv_ibi, retained_dates, year = classify.pivot_epb(df_mssl, df_ibi,"epb_num")
 #classify.rebuild_sg_df(mssl_ibi, retained_dates)
 
 #EPB continuous data (how large is each point?)
@@ -383,7 +383,8 @@ def panel_plot(dpi):
         #print(df)
 
         df = open_all(classified_output)
-
+        df = df[df['p_num'] == 2845]
+        '''
         #df_gb = df.groupby(['utc']).mean()
         df = df[df['utc'].between('00:22:00','00:38:00')]
         df = df.sort_values(by=['utc','s_id'], ascending=[True,True])
@@ -395,9 +396,9 @@ def panel_plot(dpi):
         df_long = df_long.iloc[1::2]
         df_long['long_diff_km'] = abs(df_long ['long_diff'] * 111)
 
-        #df = df[df['p_num'] == 96]
+        #df = df[df['p_num'] == 2838]
         #df = full_df_mssl_classified
-        print(df_long)
+        print(df_long)'''
 
         
         figs, axs = plt.subplots(ncols=1, nrows=4, figsize=(8,4.5), 
@@ -413,11 +414,11 @@ def panel_plot(dpi):
         sns.lineplot(ax = axs[0], data = df, x = x, y =ax0y, 
                 palette = 'cubehelix' ,hue = hue, legend=True)
 
-        ax1y = 'sg_smooth'
+        ax1y = 'b_ind'
         sns.lineplot(ax = axs[1], data = df, x =x, y =ax1y,
                 palette = 'cubehelix', hue = hue, legend=False)
  
-        ax2y = 'pot'
+        ax2y = 'sg_smooth'
         sns.lineplot(ax = axs[2], data = df, x = x, y =ax2y, 
                 palette = 'cubehelix', hue = hue, legend = False)
 
@@ -460,10 +461,11 @@ def panel_plot(dpi):
         
         axs[1].set_ylabel(f'{ax1y}')
         axs[1].tick_params(bottom = False)
-        axs[1].set_ylabel('MSSL')
+        axs[1].set_ylabel('IBI')
 
         axs[2].set_ylabel(f'{ax2y}')
         axs[2].tick_params(bottom = False)
+        axs[2].set_ylabel('MSSL')
         #axs[2].set_ylabel('Long Diff \n(km)')
 
         axs[3].set_ylabel(f'{ax3y}')
@@ -490,7 +492,7 @@ def panel_plot(dpi):
 
         plt.show()
 
-#panel_plot(90)
+panel_plot(90)
 
 def heatmap(df, pv_mssl, pv_ibi, year):
 
@@ -569,7 +571,7 @@ def heatmap(df, pv_mssl, pv_ibi, year):
 
 #df_mssl = open_all(epb_mssl_output)
 #df_ibi = open_all(epb_ibi_output)
-heatmap(mssl_ibi, pv_mssl, pv_ibi, year)
+#heatmap(mssl_ibi, pv_mssl, pv_ibi, year)
 
 def determine_epb_intensity():
 

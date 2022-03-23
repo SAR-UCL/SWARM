@@ -10,103 +10,25 @@ path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/S
 load_data = path + 'train-test_set.csv'
 df = pd.read_csv(load_data)
 
-#df = df[['date','utc','mlt','lat','long','s_id','pass','Ne','Ti','pot','id','epb_gt']]
+df = df[['date','utc','mlt','lat','long','s_id','pass','Ne','id','epb_gt']]
 
 test_id =  10
 df = df[df['id']==test_id]
 #print(df)
 
-from sklearn.preprocessing import StandardScaler
-x_data = df[['Ne','pot']]
-scaler = StandardScaler()
-scaler.fit(x_data) #compute mean for removal and std
-x_data = scaler.transform(x_data)
-ne_scale = [a[0] for a in x_data]
-df['Ne_scale'] = ne_scale
-#print(df)
-
-'''
-figs, axs = plt.subplots(ncols=1, nrows=2, figsize=(8,5), 
-dpi=90, sharex=True) #3.5 for single, #5.5 for double
-axs = axs.flatten()
-
-x = 'lat'
-hue = 's_id'
-
-ax0y = 'Ne'
-sns.lineplot(ax = axs[0], data = df, x = x, y =ax0y, 
-        palette = 'bone, hue = hue, legend=False)
-
-ax1y = 'epb_gt'
-sns.lineplot(ax = axs[1], data = df, x = x, y =ax1y, 
-        palette = 'bone',hue = hue, legend=False)
-
-ax = plt.gca()
-ax.invert_xaxis()
-
-plt.tight_layout()
-plt.show()
-
-# print(df)
-
-test_id =  9
-df = df[df['id']==test_id]
-print(df)'''
-
-def high_pass_filter(df):
-    df ['Ne_filtered'] = df['Ne'] / 1e5
-    return df
-    #None
-#df = high_pass_filter(df)
-#print(df)
-
 def savitzky_golay(df):
 
     from scipy.signal import savgol_filter
-    
-    #df['Ne'] = np.log10(df['Ne'])
-    #df['Ne_savgol'] = savgol_filter(df['Ne'], window_length=23,
-    #    polyorder = 3) #Ne do not change
 
     df['Ne_savgol'] = savgol_filter(df['Ne'], window_length=23,
         polyorder = 2) #Ne do not change    
-    #df['Ti_savgol'] = savgol_filter(df['Ti'], 51, 4)
-    #df['pot_savgol'] = savgol_filter(df['pot'], 51, 4)
 
     df['Ne_resid'] = df['Ne'] - df['Ne_savgol']
-    #df['Ti_resid'] = df['Ti'] - df['Ti_savgol']
-    #df['pot_resid'] = df['pot'] - df['pot_savgol']
-
-    #df['ne_ti_corr'] = df['Ne_resid'].rolling(window=10).corr(df['Ti_resid'])
-
     df = df.dropna()
-
-
-
-    
     return df
 
 df = savitzky_golay(df)
-#print(df)
 
-#df['Ne_resid'] = df['Ne'] - df['Ne_savgol']
-
-def covar_corr(df):
-    df['ne_pot_corr'] = df['Ne'].rolling(window=10).corr(df['Ti'])
-    df['ne_pot_covar'] = df['Ne'].rolling(window=10).cov(df['Ti'])
-
-
-    def covar_check(covar):
-        if covar > 7e5:
-            return 1
-        else:
-            return 0
-
-    df['covar_epb'] = df['ne_pot_covar'].apply(covar_check)
-
-    return df
-
-#df = covar_corr(df)
 
 def calc_ROC_pt(df):
     #Rate of change cm/s or k/s or pot/s
@@ -131,43 +53,11 @@ def stddev_window(df):
 
     #df = df.drop(columns=['Ne_c','pot_c'])
 
-    def stddev_ne(x):
-        if x > 0.1:
-            return 1
-        else:
-            return 0
-
-    def stddev_pot(x):
-        if x > 0.01:
-            return 1
-        else:
-            return 0
-
-    def stddev_ti(x):
-        if x > 0.1:
-            return 1
-        else:
-            return 0
-
-    def stddev_sg(x):
-        if x > 0.1:
-            return 1
-        else:
-            return 0
-
-
-    #df['std_ne'] = df['Ne_std'].apply(stddev_ne)
-   # df['std_pot'] = df['pot_std'].apply(stddev_pot)
-   # df['std_ti'] = df['Ti_std'].apply(stddev_ti)
-   # df['std_savgol'] = df['sg_std'].apply(stddev_sg)
-
     df = df.dropna()
 
     return df
 
 df = stddev_window(df)
-
-
 
 def sovgol_epb(x):
     if x > 10000 or x < -10000:
@@ -221,14 +111,29 @@ def check_function(x,y):
 df['func_score'] = df.apply(lambda x: check_function(x['epb_gt'], 
         x['sovgol_epb']), axis=1)
 
+def transform_df(df):
+    
+    d_max = df.groupby(['pass'], as_index=False)['Ne'].max().rename(columns={'Ne':'Ne_max'})
+    d_min = df.groupby(['pass'], as_index=False)['Ne'].min().rename(columns={'Ne':'Ne_min'}).drop(columns=['pass'])
+    d_avg = df.groupby(['pass'], as_index=False)['Ne'].mean().rename(columns={'Ne':'Ne_avg'}).drop(columns=['pass'])
+    d_sd = df['Ne'].std()
 
+    df = pd.concat([d_max, d_min, d_avg], axis=1)
+    df['Ne_std'] = d_sd
+
+    return df
+
+df_gb = transform_df(df)
 print(df)
+print(df_gb)
+
+
 #df['func_score'] = df.apply(lambda x: check_function(x['epb_gt'], 
 #         x['covar_epb']), axis=1)
 
 scores = df.groupby('func_score').size()
 #print(scores)
-
+'''
 if test_id == 2 or test_id == 6 or test_id == 7 or test_id == 13 or test_id==14 or test_id == 15 or test_id == 16:
 #if test_id == 10:
     print('Scores',scores)
@@ -249,7 +154,7 @@ else:
     print ('Recall:', recall)
     print('F1:',f1)
 
-#print(df)
+#print(df)'''
 
 def plotNoStdDev(df):
         
@@ -342,4 +247,4 @@ def plotNoStdDev(df):
         plt.tight_layout()
         plt.show()
 
-plotNoStdDev(df)
+#plotNoStdDev(df)

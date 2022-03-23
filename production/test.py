@@ -49,43 +49,27 @@ df_b = pd.DataFrame({"utc": ["13:00","13:01","13:02"],
                    "sat": ["C", "C", "C"]})
 
 
-# df = pd.concat([df_a, df_b],axis=0)
-# print(df)
+df = pd.DataFrame({'date': ['2015-01-01', '2015-01-02', '2015-01-02', '2015-01-02', '2015-01-02','2015-01-02', '2015-01-02', '2015-01-02'],
+                  'p_num': [1,2,2,2,5,5,5,5], 
+                  #'Ne':[1e6, 1e5, 1e4, 5e6, 6e6,1e4, 5e6, 6e6],
+                  'sg_smooth':[1,1,1,0,1,0,1,1],
+                  'bub_id':[1,1,1,0,2,0,2,2]
+                  })
 
-# sns.lineplot(data=df, x = 'utc',y='ne',hue='sat')
-# plt.yscale('log')
-# plt.tight_layout()
-# plt.show()
+#df_date = df.groupby()
 
+#DUMMIES
+import pandas as pd
+ 
+df = pd.DataFrame.from_dict(
+    {
+        'heroes': ['Batman', 'Thor', 'Hulk', 'Spiderman', 'Flash'],
+        'publisher': ['DC COMICS', 'Marvel', 'Marvel', 'Marvel', 'DC COMICS'],
+        'Power': ['Medium', 'Strong', 'Strong', 'Medium', 'Low']
+    }
+)
+ 
+print(df)
 
-path = r'/Users/sr2/OneDrive - University College London/PhD/Research/Missions/SWARM/Non-Flight Data/Analysis/Mar-22/data/sample/ml_pred_idea.csv'
-
-df = pd.read_csv(path)
-#print(df)
-
-df_piv = df.pivot_table(values='diff', index='day', columns='month', dropna = False)
-print(df_piv)
-
-#fig, ax = plt.figure(figsize = (6.5,6.5))
-fig, ax = plt.subplots(figsize = (6.5,6.5))
-cmap = "PiYG" #differentiation
-#cmap = "YlGnBu" #individual days
-sns.heatmap(df_piv, annot=True, linewidths=0.1,
-            fmt=".0f", cmap=cmap, center=0)
-
-plt.title(f'EPB Predictions vs. Actual. \n where 0 = match, > 0 false positives, < 0 false negatives'
-            '\n the perfect score is 0 on all dates ', fontsize=10.5)
-
-ax.text(0.5, 0.5, 'Sample data', transform=ax.transAxes,
-        fontsize=40, color='gray', alpha=0.3,
-        ha='center', va='center', rotation='30')
-
-#plt.title(f'Number of EPB events in {date}, \n (MSSL Classifier)', fontsize=10.5)
-plt.xlabel(' ')
-plt.ylabel(' ')
-
-#ax.figure.axes[-1].set_ylabel(f'{log} counts per sec', size=9.5)
-plt.yticks(rotation = 0)
-
-plt.tight_layout()
-plt.show()
+dummy = pd.get_dummies(df['publisher'])
+print(dummy)
