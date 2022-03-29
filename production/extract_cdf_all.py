@@ -146,7 +146,7 @@ class extraction():
 
                     return df
 
-                lp_data = calcROC(lp_data)
+                #lp_data = calcROC(lp_data)
 
                 def pass_count(df):
                     ml = []

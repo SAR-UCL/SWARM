@@ -48,28 +48,30 @@ df_b = pd.DataFrame({"utc": ["13:00","13:01","13:02"],
                    "p_num": [1, 2, 2],
                    "sat": ["C", "C", "C"]})
 
-
 df = pd.DataFrame({'date': ['2015-01-01', '2015-01-02', '2015-01-02', '2015-01-02', '2015-01-02','2015-01-02', '2015-01-02', '2015-01-02'],
-                  'p_num': [1,2,2,2,5,5,5,5], 
+                  'p_num': [1,1,2,2,5,5,5,5], 
                   #'Ne':[1e6, 1e5, 1e4, 5e6, 6e6,1e4, 5e6, 6e6],
                   'sg_smooth':[1,1,1,0,1,0,1,1],
                   'bub_id':[1,1,1,0,2,0,2,2]
                   })
 
+#df_t = pd.util.testing.makeDataFrame()
+
+train, val, test = np.split(df.sample(frac=1), [int(0.8*len(df)), 
+        int(0.9*len(df))])
+
+#train, test = np.split(df.sample(frac=1), [int(0.8*len(df))])
+
+print(len(train), 'training examples')
+print(len(val), 'validation examples')
+print(len(test), 'test examples')
+
 #df_date = df.groupby()
 
-#DUMMIES
-import pandas as pd
- 
-df = pd.DataFrame.from_dict(
-    {
-        'heroes': ['Batman', 'Thor', 'Hulk', 'Spiderman', 'Flash'],
-        'publisher': ['DC COMICS', 'Marvel', 'Marvel', 'Marvel', 'DC COMICS'],
-        'Power': ['Medium', 'Strong', 'Strong', 'Medium', 'Low']
-    }
-)
- 
-print(df)
-
-dummy = pd.get_dummies(df['publisher'])
-print(dummy)
+df_p = df.groupby('p_num')
+df_list = []
+for name, i in df_p:
+    df = i['date'].count()
+    df_list.append(df)
+#df = pd.concat()
+#print(df_list)

@@ -195,6 +195,10 @@ class RF_classifer():
                 index = feature_labs).round(2).sort_values(ascending=False)
         print('Feature Importance:\n', feature_imp)
 
+
+        #df=pd.DataFrame({'Actual':y_test, 'Predicted':y_pred})
+        #https://machinelearningmastery.com/make-predictions-scikit-learn/
+        
         #Feature importance using SHAP values
         #https://towardsdatascience.com/explain-your-model-with-the-shap-values-bc36aac4de3d
 
