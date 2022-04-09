@@ -46,3 +46,6 @@ df = pd.DataFrame({'date': ['2015-01-01', '2015-01-02', '2015-01-02', '2015-01-0
 
 
 print(df)
+
+from viresclient import set_token
+request = SwarmRequest()
